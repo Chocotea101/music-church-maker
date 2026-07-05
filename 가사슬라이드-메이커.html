@@ -163,7 +163,7 @@
 <div class="wrap">
   <header>
     <h1>가사 슬라이드 메이커<span class="dot">.</span></h1>
-    <p id="verBadge">v5.3</p>
+    <p id="verBadge">v5.4</p>
   </header>
   <div id="updateBanner" style="display:none; margin-bottom:12px; padding:12px 14px; border-radius:10px; background:rgba(245,195,77,.1); border:1px solid rgba(245,195,77,.4); font-size:13px; line-height:1.6">
     <b style="color:var(--amber)">새 버전이 나왔어요!</b> <span id="updateMsg"></span>
@@ -299,7 +299,11 @@
         <div class="chips" id="fontChips">
           <div class="chip on" data-v="gothic">고딕 (또렷)</div>
           <div class="chip" data-v="serif">명조 (우아)</div>
+          <div class="chip" data-v="gungsuh">궁서 (붓글씨)</div>
+          <div class="chip" data-v="custom">직접 입력</div>
         </div>
+        <input type="text" id="customFontInput" placeholder="폰트 이름 그대로 입력 (예: 나눔손글씨 펜, 배달의민족 주아)" style="display:none; margin-top:8px">
+        <div class="hint" id="fontHint" style="display:none; margin-top:6px">발표하는 컴퓨터에 설치된 폰트여야 해요. 미리보기도 이 기기에 그 폰트가 있어야 제대로 보여요.</div>
       </div>
       <div class="field">
         <label>단색 배경 / 사진·GIF</label>
@@ -359,7 +363,7 @@
 
 <script>
 // ══════════ 버전 & 업데이트 확인 ══════════
-const APP_VERSION = '5.3';
+const APP_VERSION = '5.4';
 // 아래 주소의 version.json을 실행할 때마다 확인해서 새 버전 공지를 띄워요.
 // version.json 형식:
 // {"version":"5.3","file":"새 html의 raw 주소","link":"배포 페이지 주소","notes":"바뀐 점 한 줄"}
@@ -402,7 +406,7 @@ function newerThan(remote, local){
             tag.download = '가사슬라이드-메이커-v' + info.version + '.html';
             document.body.appendChild(tag); tag.click(); tag.remove();
             URL.revokeObjectURL(url);
-            dl.textContent = '다운로드 완료! 새 파일로 열어주세요';
+            dl.textContent = '완료! 새 파일로 기존 파일을 바꿔 열어주세요 (설정·작업 자동 유지)';
           } catch (e){
             dl.textContent = '실패 — 배포 페이지에서 받아주세요';
             document.getElementById('updateLink').style.display = 'inline-block';
@@ -435,7 +439,18 @@ let splitMode = 'blank', sizeMode = 'uniform';
 let bg = '000000', fg = 'FFFFFF';
 let bgImage = null, bgIsGif = false, dim = 35;
 let themeName = 'none', themeBg = null;
-let fontStyle = 'gothic';
+let fontStyle = 'gothic', customFont = '';
+
+function previewFontFamily(){
+  if (fontStyle === 'serif')   return '"AppleMyungjo","Nanum Myeongjo","Batang","바탕",serif';
+  if (fontStyle === 'gungsuh') return '"Gungsuh","궁서","GungSeo",serif';
+  if (fontStyle === 'custom' && customFont.trim())
+    return '"' + customFont.trim().replace(/"/g,'') + '","Apple SD Gothic Neo","Malgun Gothic",sans-serif';
+  return '"Apple SD Gothic Neo","Malgun Gothic",sans-serif';
+}
+function previewLetterSpacing(){
+  return (fontStyle === 'serif' || fontStyle === 'gungsuh') ? '.05em' : '0';
+}
 let sheetData = null, sheetType = null;
 let scoreRows = 1;
 let animName = 'none', animBusy = false;
@@ -650,8 +665,9 @@ function lineUnits(line){
 }
 function fitFont(lines){
   const maxU = Math.max(...lines.map(lineUnits), 1);
-  // 명조는 자간을 넓혀서 폭 여유 5% 추가
-  const spacingFactor = fontStyle === 'serif' ? 1.06 : 1.0;
+  // 자간 넓은 서체·미확인 폰트는 폭 여유를 더 둠
+  const spacingFactor = (fontStyle === 'serif' || fontStyle === 'gungsuh') ? 1.06
+                      : (fontStyle === 'custom' ? 1.05 : 1.0);
   const byW = 72 * USABLE_W / (maxU * spacingFactor);
   const byH = 72 * USABLE_H / (lines.length * LINE_H);
   return Math.floor(Math.min(byW, byH, FS_MAX));
@@ -724,9 +740,7 @@ function pitchSteps(p){
 const SHARP_POS = [8,5,9,6,3,7,4], FLAT_POS = [4,7,3,6,2,5,1];
 
 function lyricFontStack(px, bold){
-  return (bold ? 'bold ' : '600 ') + px + 'px ' + (fontStyle === 'serif'
-    ? '"AppleMyungjo","Nanum Myeongjo","Batang","바탕",serif'
-    : '"Apple SD Gothic Neo","Malgun Gothic",sans-serif');
+  return (bold ? 'bold ' : '600 ') + px + 'px ' + previewFontFamily();
 }
 
 function drawPhrase(phrase, keyName, timeSig, ink){
@@ -836,6 +850,66 @@ function buildScoreSlides(){
     document.getElementById('titleInput').value = scoreMeta.title;
 }
 
+// ══════════ 설정·작업 자동 저장 (업데이트해도 유지) ══════════
+// 브라우저 저장소에 보관 — 새 버전 파일로 바꿔도 그대로 복원돼요.
+// (claude.ai 미리보기 안에서는 저장소가 막혀 있어 저장이 안 되고, 다운받은 파일에서 작동해요)
+const SETTINGS_KEY = 'mcm_settings_v1';
+function storeSet(v){ try { localStorage.setItem(SETTINGS_KEY, v); } catch (e){} }
+function storeGet(){ try { return localStorage.getItem(SETTINGS_KEY); } catch (e){ return null; } }
+function selectChip(groupId, value){
+  document.querySelectorAll('#' + groupId + ' .chip').forEach(x =>
+    x.classList.toggle('on', x.dataset.v === value));
+}
+let settingsReady = false;
+function saveSettings(){
+  if (!settingsReady) return;
+  storeSet(JSON.stringify({
+    splitMode, sizeMode, fontStyle, customFont, bg, fg, themeName, dim, scoreRows,
+    lyrics: document.getElementById('lyricsInput').value,
+    scoreText: document.getElementById('scoreText').value,
+    knownLyrics: document.getElementById('knownLyrics').value,
+    title: document.getElementById('titleInput').value,
+    subtitle: document.getElementById('subtitleInput').value
+  }));
+}
+function loadSettings(){
+  const raw = storeGet();
+  if (raw){
+    try {
+      const s = JSON.parse(raw);
+      if (s.splitMode) { splitMode = s.splitMode; selectChip('splitChips', splitMode); }
+      if (s.sizeMode)  { sizeMode  = s.sizeMode;  selectChip('sizeChips',  sizeMode); }
+      if (s.scoreRows) { scoreRows = s.scoreRows; selectChip('rowChips', String(scoreRows)); }
+      if (typeof s.dim === 'number'){ dim = s.dim; selectChip('dimChips', String(dim)); }
+      if (s.fontStyle){
+        fontStyle = s.fontStyle; customFont = s.customFont || '';
+        selectChip('fontChips', fontStyle);
+        document.getElementById('customFontInput').value = customFont;
+        const isCustom = fontStyle === 'custom';
+        document.getElementById('customFontInput').style.display = isCustom ? 'block' : 'none';
+        document.getElementById('fontHint').style.display = isCustom ? 'block' : 'none';
+      }
+      if (s.bg){ bg = s.bg; fg = s.fg || 'FFFFFF';
+        document.querySelectorAll('#bgSwatches .sw').forEach(x =>
+          x.classList.toggle('on', x.dataset.bg === bg));
+      }
+      if (s.themeName && s.themeName !== 'none'){
+        themeName = s.themeName; themeBg = genThemeBg(themeName);
+        selectChip('themeChips', themeName);
+      }
+      if (s.lyrics) document.getElementById('lyricsInput').value = s.lyrics;
+      if (s.scoreText) document.getElementById('scoreText').value = s.scoreText;
+      if (s.knownLyrics) document.getElementById('knownLyrics').value = s.knownLyrics;
+      if (s.title) document.getElementById('titleInput').value = s.title;
+      if (s.subtitle) document.getElementById('subtitleInput').value = s.subtitle;
+    } catch (e){}
+  }
+  settingsReady = true;
+}
+document.getElementById('titleInput').addEventListener('input', saveSettings);
+document.getElementById('subtitleInput').addEventListener('input', saveSettings);
+document.getElementById('knownLyrics').addEventListener('input', saveSettings);
+
 // ══════════ 미리보기 ══════════
 function totalSlides(){ return mode === 'lyrics' ? slides.length : scoreSlides.length; }
 
@@ -885,7 +959,8 @@ function render(){
     const pxPerPt = stage.clientWidth / (SLIDE_W * 72);
     lyric.style.fontSize = (s.fs * pxPerPt) + 'px';
     lyric.style.color = effBg ? '#FFFFFF' : '#' + fg;
-    lyric.classList.toggle('serif', fontStyle === 'serif');
+    lyric.style.fontFamily = previewFontFamily();
+    lyric.style.letterSpacing = previewLetterSpacing();
     lyric.classList.toggle('shadowed', !!effBg);
     lyric.replaceChildren(...s.lines.map(line => {
       const div = document.createElement('div');
@@ -921,6 +996,7 @@ function render(){
 function refresh(){
   if (mode === 'lyrics') buildLyricSlides(); else buildScoreSlides();
   render();
+  saveSettings();
 }
 
 // ══════════ 이벤트 ══════════
@@ -957,8 +1033,18 @@ function chipGroup(id, onPick){
 chipGroup('splitChips', v => { splitMode = v; refresh(); });
 chipGroup('sizeChips',  v => { sizeMode  = v; refresh(); });
 chipGroup('rowChips',   v => { scoreRows = parseInt(v, 10); refresh(); });
-chipGroup('dimChips',   v => { dim = parseInt(v, 10); render(); });
-chipGroup('fontChips',  v => { fontStyle = v; refresh(); });
+chipGroup('dimChips',   v => { dim = parseInt(v, 10); render(); saveSettings(); });
+chipGroup('fontChips',  v => {
+  fontStyle = v;
+  const isCustom = v === 'custom';
+  document.getElementById('customFontInput').style.display = isCustom ? 'block' : 'none';
+  document.getElementById('fontHint').style.display = isCustom ? 'block' : 'none';
+  refresh();
+});
+document.getElementById('customFontInput').addEventListener('input', e => {
+  customFont = e.target.value;
+  refresh();
+});
 function resetAnimChips(){
   animName = 'none';
   document.querySelectorAll('#animChips .chip').forEach(x => x.classList.toggle('on', x.dataset.v === 'none'));
@@ -1174,6 +1260,10 @@ document.getElementById('aiReadBtn').onclick = async () => {
 function currentFonts(target){
   if (fontStyle === 'serif')
     return target === 'key' ? { face:'AppleMyungjo', spacing:2 } : { face:'바탕', spacing:2 };
+  if (fontStyle === 'gungsuh')
+    return target === 'key' ? { face:'GungSeo', spacing:1 } : { face:'궁서', spacing:1 };
+  if (fontStyle === 'custom' && customFont.trim())
+    return { face: customFont.trim(), spacing: 0 };
   return target === 'key' ? { face:'Apple SD Gothic Neo', spacing:0 } : { face:'맑은 고딕', spacing:0 };
 }
 
@@ -1277,6 +1367,7 @@ async function exportDeck(target){
 document.getElementById('exportPpt').onclick = () => exportDeck('ppt');
 document.getElementById('exportKey').onclick = () => exportDeck('key');
 
+loadSettings();
 refresh();
 </script>
 </body>
