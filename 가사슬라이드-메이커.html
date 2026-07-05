@@ -163,12 +163,15 @@
 <div class="wrap">
   <header>
     <h1>가사 슬라이드 메이커<span class="dot">.</span></h1>
-    <p id="verBadge">v5.1</p>
+    <p id="verBadge">v5.2</p>
   </header>
   <div id="updateBanner" style="display:none; margin-bottom:12px; padding:12px 14px; border-radius:10px; background:rgba(245,195,77,.1); border:1px solid rgba(245,195,77,.4); font-size:13px; line-height:1.6">
     <b style="color:var(--amber)">새 버전이 나왔어요!</b> <span id="updateMsg"></span>
-    <a id="updateLink" href="#" target="_blank" style="color:var(--amber); font-weight:700"></a>
     <span id="updateClose" style="float:right; cursor:pointer; color:var(--sub)">✕</span>
+    <div style="margin-top:8px; display:flex; gap:8px; flex-wrap:wrap">
+      <button id="updateDlBtn" style="display:none; padding:9px 16px; border:none; border-radius:8px; background:var(--amber); color:#191203; font-weight:800; font-size:13px; cursor:pointer; font-family:inherit">새 버전 다운로드</button>
+      <a id="updateLink" href="#" target="_blank" style="display:none; padding:9px 16px; border-radius:8px; border:1px solid rgba(245,195,77,.4); color:var(--amber); font-weight:700; font-size:13px; text-decoration:none">배포 페이지 열기</a>
+    </div>
   </div>
 
   <div class="tabs">
@@ -346,9 +349,11 @@
 
 <script>
 // ══════════ 버전 & 업데이트 확인 ══════════
-const APP_VERSION = '5.1';
+const APP_VERSION = '5.2';
 // 아래 주소의 version.json을 실행할 때마다 확인해서 새 버전 공지를 띄워요.
-// version.json 형식: {"version":"5.2","link":"다운로드 주소","notes":"바뀐 점 한 줄"}
+// version.json 형식:
+// {"version":"5.3","file":"새 html의 raw 주소","link":"배포 페이지 주소","notes":"바뀐 점 한 줄"}
+// file이 있으면 '새 버전 다운로드' 버튼 한 번으로 즉시 저장돼요.
 const UPDATE_CHECK_URL = 'https://raw.githubusercontent.com/Chocotea101/music-church-maker/main/version.json';
 
 document.getElementById('verBadge').textContent = 'v' + APP_VERSION;
@@ -367,9 +372,33 @@ function newerThan(remote, local){
     const info = await res.json();
     if (info.version && newerThan(info.version, APP_VERSION)){
       document.getElementById('updateMsg').textContent =
-        'v' + info.version + (info.notes ? ' — ' + info.notes : '') + ' ';
-      const a = document.getElementById('updateLink');
-      if (info.link){ a.href = info.link; a.textContent = '다운로드 →'; }
+        'v' + info.version + (info.notes ? ' — ' + info.notes : '');
+      if (info.link){
+        const a = document.getElementById('updateLink');
+        a.href = info.link; a.style.display = 'inline-block';
+      }
+      if (info.file){
+        const dl = document.getElementById('updateDlBtn');
+        dl.style.display = 'inline-block';
+        dl.onclick = async () => {
+          dl.disabled = true; dl.textContent = '받는 중…';
+          try {
+            const r = await fetch(info.file, { cache: 'no-store' });
+            if (!r.ok) throw new Error('HTTP ' + r.status);
+            const blob = await r.blob();
+            const url = URL.createObjectURL(blob);
+            const tag = document.createElement('a');
+            tag.href = url;
+            tag.download = '가사슬라이드-메이커-v' + info.version + '.html';
+            document.body.appendChild(tag); tag.click(); tag.remove();
+            URL.revokeObjectURL(url);
+            dl.textContent = '다운로드 완료! 새 파일로 열어주세요';
+          } catch (e){
+            dl.textContent = '실패 — 배포 페이지에서 받아주세요';
+            document.getElementById('updateLink').style.display = 'inline-block';
+          }
+        };
+      }
       document.getElementById('updateBanner').style.display = 'block';
     }
   } catch (e){ /* 오프라인이거나 차단된 환경이면 조용히 넘어감 */ }
