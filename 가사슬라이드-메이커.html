@@ -163,7 +163,7 @@
 <div class="wrap">
   <header>
     <h1>가사 슬라이드 메이커<span class="dot">.</span></h1>
-    <p id="verBadge">v5.2</p>
+    <p id="verBadge">v5.3</p>
   </header>
   <div id="updateBanner" style="display:none; margin-bottom:12px; padding:12px 14px; border-radius:10px; background:rgba(245,195,77,.1); border:1px solid rgba(245,195,77,.4); font-size:13px; line-height:1.6">
     <b style="color:var(--amber)">새 버전이 나왔어요!</b> <span id="updateMsg"></span>
@@ -285,6 +285,16 @@
         </div>
       </div>
       <div class="field">
+        <label>움직이는 배경 (GIF 자동 생성 — 키노트 다이나믹 느낌)</label>
+        <div class="chips" id="animChips">
+          <div class="chip on" data-v="none">없음</div>
+          <div class="chip" data-v="stars">반짝이는 별</div>
+          <div class="chip" data-v="rise">떠오르는 빛</div>
+          <div class="chip" data-v="aurora">오로라</div>
+        </div>
+        <div class="hint" id="animStatus" style="margin-top:6px">만드는 데 10~20초 걸려요. 슬라이드쇼 재생 중에 움직여요.</div>
+      </div>
+      <div class="field">
         <label>글꼴 분위기</label>
         <div class="chips" id="fontChips">
           <div class="chip on" data-v="gothic">고딕 (또렷)</div>
@@ -349,7 +359,7 @@
 
 <script>
 // ══════════ 버전 & 업데이트 확인 ══════════
-const APP_VERSION = '5.2';
+const APP_VERSION = '5.3';
 // 아래 주소의 version.json을 실행할 때마다 확인해서 새 버전 공지를 띄워요.
 // version.json 형식:
 // {"version":"5.3","file":"새 html의 raw 주소","link":"배포 페이지 주소","notes":"바뀐 점 한 줄"}
@@ -428,22 +438,149 @@ let themeName = 'none', themeBg = null;
 let fontStyle = 'gothic';
 let sheetData = null, sheetType = null;
 let scoreRows = 1;
+let animName = 'none', animBusy = false;
 
 function effectiveBg(){ return bgImage || themeBg; }
 function onLightBg(){ return !effectiveBg() && fg === '111111'; }
 function accentHex(){ return onLightBg() ? ACCENT_LIGHTBG : ACCENT_DARKBG; }
 
+// ══════════ 라이브러리 로더 (오프라인·차단 대비 예비 서버) ══════════
+function loadScript(src){
+  return new Promise((res, rej) => {
+    const s = document.createElement('script');
+    s.src = src; s.onload = res; s.onerror = () => rej(new Error('load fail: ' + src));
+    document.head.appendChild(s);
+  });
+}
+async function ensurePptxLib(){
+  if (window.PptxGenJS) return;
+  const urls = [
+    'https://cdnjs.cloudflare.com/ajax/libs/pptxgenjs/3.12.0/pptxgen.bundle.js',
+    'https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js',
+    'https://unpkg.com/pptxgenjs@3.12.0/dist/pptxgen.bundle.js'
+  ];
+  for (const u of urls){
+    try { await loadScript(u); if (window.PptxGenJS) return; } catch (e){}
+  }
+  throw new Error('저장 라이브러리를 불러오지 못했어요. 인터넷 연결을 확인하고 다시 눌러주세요.');
+}
+let gifWorkerBlobUrl = null;
+async function ensureGifLib(){
+  if (window.GIF && gifWorkerBlobUrl) return;
+  const bases = [
+    'https://cdnjs.cloudflare.com/ajax/libs/gif.js/0.2.0/',
+    'https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/'
+  ];
+  for (const b of bases){
+    try {
+      if (!window.GIF) await loadScript(b + 'gif.js');
+      if (!gifWorkerBlobUrl){
+        const txt = await (await fetch(b + 'gif.worker.js')).text();
+        gifWorkerBlobUrl = URL.createObjectURL(new Blob([txt], { type: 'application/javascript' }));
+      }
+      if (window.GIF && gifWorkerBlobUrl) return;
+    } catch (e){}
+  }
+  throw new Error('GIF 라이브러리를 불러오지 못했어요 (인터넷 확인). 다운받은 파일에서 가장 잘 작동해요.');
+}
+
+// ══════════ 움직이는 배경 (완벽 루프 GIF) ══════════
+const animCache = {};
+function seededList(n, seedStart, maker){
+  let seed = seedStart;
+  const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  return Array.from({ length: n }, () => maker(rnd));
+}
+const ANIM_STARS = seededList(120, 99, r => ({ x: r(), y: r(), rr: 0.6 + r()*1.5, base: 0.25 + r()*0.7, sp: 1 + Math.floor(r()*3), off: r() }));
+const ANIM_RISE  = seededList(42, 55, r => ({ x0: r(), y0: r(), travel: 1 + Math.floor(r()*2), rr: 2 + r()*5, a: 0.15 + r()*0.4, wsp: 1 + Math.floor(r()*2), off: r() }));
+
+function drawAnimFrame(ctx, W, H, name, ph){ // ph ∈ [0,1) — sin(2π·정수·ph)라 완벽 루프
+  const T = Math.PI * 2;
+  if (name === 'stars'){
+    ctx.fillStyle = '#060a18'; ctx.fillRect(0, 0, W, H);
+    radial(ctx, W, H, W/2, H*1.18, H*1.15, 'rgba(46,66,130,0.30)');
+    for (const st of ANIM_STARS){
+      const tw = 0.35 + 0.65 * (0.5 + 0.5 * Math.sin(T * (ph * st.sp + st.off)));
+      ctx.fillStyle = 'rgba(255,255,255,' + (st.base * tw).toFixed(3) + ')';
+      ctx.beginPath(); ctx.arc(st.x * W, st.y * H, st.rr, 0, T); ctx.fill();
+    }
+  } else if (name === 'rise'){
+    ctx.fillStyle = '#120b05'; ctx.fillRect(0, 0, W, H);
+    radial(ctx, W, H, W/2, H*1.1, H*1.2, 'rgba(196,124,42,0.30)');
+    radial(ctx, W, H, W/2, H*1.15, H*0.6, 'rgba(255,186,92,0.18)');
+    for (const p of ANIM_RISE){
+      let yp = p.y0 - ph * p.travel; yp -= Math.floor(yp);
+      const x = p.x0 * W + 12 * Math.sin(T * (ph * p.wsp + p.off));
+      const a = p.a * Math.sin(Math.PI * yp);   // 위·아래 가장자리에서 서서히 사라짐
+      if (a <= 0.01) continue;
+      radial(ctx, W, H, x, yp * H, p.rr * 3.2, 'rgba(255,200,120,' + a.toFixed(3) + ')');
+      ctx.fillStyle = 'rgba(255,222,160,' + (a * 0.9).toFixed(3) + ')';
+      ctx.beginPath(); ctx.arc(x, yp * H, p.rr * 0.55, 0, T); ctx.fill();
+    }
+  } else if (name === 'aurora'){
+    ctx.fillStyle = '#050a14'; ctx.fillRect(0, 0, W, H);
+    const bands = [
+      { yb: 0.32, amp: 0.09, n: 1, col: 'rgba(80,220,180,0.16)' },
+      { yb: 0.44, amp: 0.11, n: 2, col: 'rgba(100,160,255,0.14)' },
+      { yb: 0.56, amp: 0.08, n: 1, col: 'rgba(160,120,255,0.12)' }
+    ];
+    ctx.save();
+    ctx.filter = 'blur(14px)';
+    bands.forEach((b, j) => {
+      ctx.beginPath();
+      for (let x = -20; x <= W + 20; x += 10){
+        const y = H * b.yb + H * b.amp * Math.sin(x * 0.011 + T * ph * b.n + j * 2.1);
+        x === -20 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+      }
+      ctx.strokeStyle = b.col;
+      ctx.lineWidth = H * 0.17;
+      ctx.lineCap = 'round';
+      ctx.stroke();
+    });
+    ctx.restore();
+    for (const st of ANIM_STARS.slice(0, 60)){
+      ctx.fillStyle = 'rgba(255,255,255,' + (st.base * 0.45).toFixed(3) + ')';
+      ctx.beginPath(); ctx.arc(st.x * W, st.y * H * 0.9, st.rr * 0.8, 0, T); ctx.fill();
+    }
+  }
+  vignette(ctx, W, H);
+}
+
+async function genAnimBg(name, onStatus){
+  if (animCache[name]) return animCache[name];
+  await ensureGifLib();
+  const W = 960, H = 540, FRAMES = 20, DELAY = 120;
+  const gif = new GIF({ workers: 2, quality: 12, width: W, height: H, workerScript: gifWorkerBlobUrl, repeat: 0 });
+  const cv = document.createElement('canvas');
+  cv.width = W; cv.height = H;
+  const ctx = cv.getContext('2d');
+  for (let i = 0; i < FRAMES; i++){
+    drawAnimFrame(ctx, W, H, name, i / FRAMES);
+    gif.addFrame(ctx, { copy: true, delay: DELAY });
+  }
+  const blob = await new Promise((res, rej) => {
+    gif.on('finished', res);
+    gif.on('progress', p => onStatus && onStatus('GIF 만드는 중… ' + Math.round(p * 100) + '%'));
+    try { gif.render(); } catch (e){ rej(e); }
+  });
+  const dataUrl = await new Promise(res => {
+    const r = new FileReader(); r.onload = () => res(r.result); r.readAsDataURL(blob);
+  });
+  animCache[name] = dataUrl;
+  return dataUrl;
+}
+
 // ══════════ 분위기 배경 생성 ══════════
 const themeCache = {};
-function radial(ctx, x, y, r, rgba){
+function radial(ctx, W, H, x, y, r, rgba){
   const g = ctx.createRadialGradient(x, y, 0, x, y, r);
   g.addColorStop(0, rgba); g.addColorStop(1, 'rgba(0,0,0,0)');
-  ctx.fillStyle = g; ctx.fillRect(0, 0, 1920, 1080);
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
 }
-function vignette(ctx){
-  const g = ctx.createRadialGradient(960, 540, 380, 960, 540, 1150);
+function vignette(ctx, W, H){
+  const g = ctx.createRadialGradient(W/2, H/2, Math.min(W,H)*0.35, W/2, H/2, Math.max(W,H)*0.6);
   g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, 'rgba(0,0,0,0.6)');
-  ctx.fillStyle = g; ctx.fillRect(0, 0, 1920, 1080);
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
 }
 function genThemeBg(name){
   if (themeCache[name]) return themeCache[name];
@@ -456,28 +593,28 @@ function genThemeBg(name){
 
   if (name === 'dawn'){
     ctx.fillStyle = '#04080c'; ctx.fillRect(0, 0, 1920, 1080);
-    radial(ctx, 420, 220, 1300, 'rgba(28,72,86,0.50)');
-    radial(ctx, 1620, 940, 1000, 'rgba(16,42,64,0.35)');
+    radial(ctx, 1920, 1080, 420, 220, 1300, 'rgba(28,72,86,0.50)');
+    radial(ctx, 1920, 1080, 1620, 940, 1000, 'rgba(16,42,64,0.35)');
     for (let i = 0; i < 14; i++)
-      radial(ctx, rnd()*1920, rnd()*1080, 60 + rnd()*160, 'rgba(120,180,200,' + (0.03 + rnd()*0.05) + ')');
+      radial(ctx, 1920, 1080, rnd()*1920, rnd()*1080, 60 + rnd()*160, 'rgba(120,180,200,' + (0.03 + rnd()*0.05) + ')');
   } else if (name === 'night'){
     ctx.fillStyle = '#060a18'; ctx.fillRect(0, 0, 1920, 1080);
-    radial(ctx, 960, 1250, 1200, 'rgba(46,66,130,0.30)');
+    radial(ctx, 1920, 1080, 960, 1250, 1200, 'rgba(46,66,130,0.30)');
     for (let i = 0; i < 170; i++){
       const x = rnd()*1920, y = rnd()*1080, r = 0.6 + rnd()*1.7;
       ctx.fillStyle = 'rgba(255,255,255,' + (0.12 + rnd()*0.7) + ')';
       ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI*2); ctx.fill();
     }
     for (let i = 0; i < 5; i++)
-      radial(ctx, rnd()*1920, rnd()*500, 120 + rnd()*180, 'rgba(150,170,255,0.05)');
+      radial(ctx, 1920, 1080, rnd()*1920, rnd()*500, 120 + rnd()*180, 'rgba(150,170,255,0.05)');
   } else if (name === 'warm'){
     ctx.fillStyle = '#120b05'; ctx.fillRect(0, 0, 1920, 1080);
-    radial(ctx, 960, 1120, 1250, 'rgba(196,124,42,0.30)');
-    radial(ctx, 960, 1180, 620, 'rgba(255,186,92,0.18)');
+    radial(ctx, 1920, 1080, 960, 1120, 1250, 'rgba(196,124,42,0.30)');
+    radial(ctx, 1920, 1080, 960, 1180, 620, 'rgba(255,186,92,0.18)');
     for (let i = 0; i < 10; i++)
-      radial(ctx, 400 + rnd()*1120, 600 + rnd()*480, 40 + rnd()*110, 'rgba(255,200,120,' + (0.04 + rnd()*0.06) + ')');
+      radial(ctx, 1920, 1080, 400 + rnd()*1120, 600 + rnd()*480, 40 + rnd()*110, 'rgba(255,200,120,' + (0.04 + rnd()*0.06) + ')');
   }
-  vignette(ctx);
+  vignette(ctx, 1920, 1080);
   const url = cv.toDataURL('image/jpeg', 0.88);
   themeCache[name] = url;
   return url;
@@ -822,13 +959,46 @@ chipGroup('sizeChips',  v => { sizeMode  = v; refresh(); });
 chipGroup('rowChips',   v => { scoreRows = parseInt(v, 10); refresh(); });
 chipGroup('dimChips',   v => { dim = parseInt(v, 10); render(); });
 chipGroup('fontChips',  v => { fontStyle = v; refresh(); });
+function resetAnimChips(){
+  animName = 'none';
+  document.querySelectorAll('#animChips .chip').forEach(x => x.classList.toggle('on', x.dataset.v === 'none'));
+  document.getElementById('animStatus').textContent = '만드는 데 10~20초 걸려요. 슬라이드쇼 재생 중에 움직여요.';
+}
+chipGroup('animChips', async v => {
+  const status = document.getElementById('animStatus');
+  if (animBusy){ return; }
+  if (v === 'none'){
+    if (animName !== 'none'){ bgImage = null; bgIsGif = false; }
+    animName = 'none';
+    status.textContent = '만드는 데 10~20초 걸려요. 슬라이드쇼 재생 중에 움직여요.';
+    refresh(); return;
+  }
+  animBusy = true;
+  status.textContent = 'GIF 만드는 중… 잠시만요';
+  try {
+    const url = await genAnimBg(v, t => status.textContent = t);
+    bgImage = url; bgIsGif = true;
+    animName = v;
+    themeBg = null; themeName = 'none';
+    document.querySelectorAll('#themeChips .chip').forEach(x => x.classList.toggle('on', x.dataset.v === 'none'));
+    document.querySelectorAll('#bgSwatches .sw').forEach(x => x.classList.remove('on'));
+    document.getElementById('imgThumb').style.display = 'none';
+    status.textContent = '완료! 편집 화면에선 정지로 보이고, 슬라이드쇼에서 움직여요.';
+    refresh();
+  } catch (err){
+    status.textContent = '생성 실패: ' + err.message;
+    resetAnimChips();
+  } finally { animBusy = false; }
+});
+
 chipGroup('themeChips', v => {
   themeName = v;
   if (v === 'none'){ themeBg = null; }
   else {
     themeBg = genThemeBg(v);
-    // 테마 선택 시 업로드 이미지 해제
+    // 테마 선택 시 업로드/애니메이션 배경 해제
     bgImage = null; bgIsGif = false;
+    resetAnimChips();
     document.getElementById('imgThumb').style.display = 'none';
     document.getElementById('imgBtn').classList.remove('on');
   }
@@ -842,6 +1012,7 @@ document.getElementById('bgSwatches').addEventListener('click', e => {
   s.classList.add('on');
   bg = s.dataset.bg; fg = s.dataset.fg;
   bgImage = null; bgIsGif = false; themeBg = null; themeName = 'none';
+  resetAnimChips();
   document.querySelectorAll('#themeChips .chip').forEach(x => x.classList.toggle('on', x.dataset.v === 'none'));
   document.getElementById('imgThumb').style.display = 'none';
   refresh();
@@ -854,6 +1025,7 @@ document.getElementById('imgFile').addEventListener('change', e => {
     bgImage = reader.result;
     bgIsGif = f.type === 'image/gif';
     themeBg = null; themeName = 'none';
+    resetAnimChips();
     document.querySelectorAll('#themeChips .chip').forEach(x => x.classList.toggle('on', x.dataset.v === 'none'));
     document.querySelectorAll('#bgSwatches .sw').forEach(x => x.classList.remove('on'));
     document.getElementById('imgBtn').classList.add('on');
@@ -1010,6 +1182,7 @@ async function exportDeck(target){
   const orig = btn.innerHTML;
   btn.disabled = true; btn.textContent = '만드는 중…';
   try {
+    await ensurePptxLib();
     const F = currentFonts(target);
     const pptx = new PptxGenJS();
     pptx.defineLayout({ name: 'W169', width: SLIDE_W, height: SLIDE_H });
