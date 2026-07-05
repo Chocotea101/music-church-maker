@@ -1,5 +1,6 @@
 {
-  "version": "5.1",
+  "version": "5.2",
+  "file": "https://raw.githubusercontent.com/Chocotea101/music-church-maker/main/music-church-maker.html",
   "link": "https://github.com/Chocotea101/music-church-maker",
-  "notes": "악보 자막·디자인 테마 추가"
+  "notes": "원클릭 업데이트 다운로드 추가"
 }
