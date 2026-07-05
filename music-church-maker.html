@@ -163,7 +163,7 @@
 <div class="wrap">
   <header>
     <h1>가사 슬라이드 메이커<span class="dot">.</span></h1>
-    <p id="verBadge">v5.4</p>
+    <p id="verBadge">v5.6</p>
   </header>
   <div id="updateBanner" style="display:none; margin-bottom:12px; padding:12px 14px; border-radius:10px; background:rgba(245,195,77,.1); border:1px solid rgba(245,195,77,.4); font-size:13px; line-height:1.6">
     <b style="color:var(--amber)">새 버전이 나왔어요!</b> <span id="updateMsg"></span>
@@ -221,6 +221,17 @@
           <div class="chips" id="sizeChips">
             <div class="chip on" data-v="uniform">전체 통일 (권장)</div>
             <div class="chip" data-v="per">슬라이드별 최대</div>
+          </div>
+        </div>
+        <div class="field">
+          <label>크기 조절</label>
+          <div class="chips" id="fsChips">
+            <div class="chip on" data-v="auto">자동 계산</div>
+            <div class="chip" data-v="manual">직접 조절</div>
+          </div>
+          <div id="fsManualBox" style="display:none; margin-top:10px">
+            <input type="range" id="fsSlider" min="20" max="80" value="44" style="width:100%; accent-color:var(--amber)">
+            <div class="hint" style="margin-top:2px"><span id="fsVal" style="color:var(--amber); font-weight:700">44</span>pt — 자동 계산보다 크게 하면 화면을 넘칠 수 있어요 (넘치면 경고 떠요)</div>
           </div>
         </div>
       </div>
@@ -303,6 +314,8 @@
           <div class="chip" data-v="custom">직접 입력</div>
         </div>
         <input type="text" id="customFontInput" placeholder="폰트 이름 그대로 입력 (예: 나눔손글씨 펜, 배달의민족 주아)" style="display:none; margin-top:8px">
+        <button class="rm" id="fontListBtn" style="display:none; margin-top:8px; width:100%; padding:10px; background:var(--bg); border:1px dashed var(--line); color:var(--sub); border-radius:8px; font-size:13px; cursor:pointer; font-family:inherit">이 기기에 설치된 폰트 목록 불러오기</button>
+        <select id="fontSelect" style="display:none; margin-top:8px; width:100%; background:var(--bg); color:var(--ink); border:1px solid var(--line); border-radius:8px; padding:10px; font-size:14px; font-family:inherit"></select>
         <div class="hint" id="fontHint" style="display:none; margin-top:6px">발표하는 컴퓨터에 설치된 폰트여야 해요. 미리보기도 이 기기에 그 폰트가 있어야 제대로 보여요.</div>
       </div>
       <div class="field">
@@ -363,7 +376,7 @@
 
 <script>
 // ══════════ 버전 & 업데이트 확인 ══════════
-const APP_VERSION = '5.4';
+const APP_VERSION = '5.6';
 // 아래 주소의 version.json을 실행할 때마다 확인해서 새 버전 공지를 띄워요.
 // version.json 형식:
 // {"version":"5.3","file":"새 html의 raw 주소","link":"배포 페이지 주소","notes":"바뀐 점 한 줄"}
@@ -454,6 +467,7 @@ function previewLetterSpacing(){
 let sheetData = null, sheetType = null;
 let scoreRows = 1;
 let animName = 'none', animBusy = false;
+let fsMode = 'auto', fsManual = 44;
 
 function effectiveBg(){ return bgImage || themeBg; }
 function onLightBg(){ return !effectiveBg() && fg === '111111'; }
@@ -688,8 +702,11 @@ function buildLyricSlides(){
     const flat = allLines.filter(l => l !== '');
     for (let i = 0; i < flat.length; i += n) groups.push(flat.slice(i, i + n));
   }
-  slides = groups.map(lines => ({ lines, fs: fitFont(lines) }));
-  if (sizeMode === 'uniform' && slides.length){
+  slides = groups.map(lines => {
+    const auto = fitFont(lines);
+    return { lines, fs: fsMode === 'manual' ? fsManual : auto, autoFs: auto };
+  });
+  if (fsMode === 'auto' && sizeMode === 'uniform' && slides.length){
     const minFs = Math.min(...slides.map(s => s.fs));
     slides.forEach(s => s.fs = minFs);
   }
@@ -865,6 +882,7 @@ function saveSettings(){
   if (!settingsReady) return;
   storeSet(JSON.stringify({
     splitMode, sizeMode, fontStyle, customFont, bg, fg, themeName, dim, scoreRows,
+    fsMode, fsManual,
     lyrics: document.getElementById('lyricsInput').value,
     scoreText: document.getElementById('scoreText').value,
     knownLyrics: document.getElementById('knownLyrics').value,
@@ -881,12 +899,20 @@ function loadSettings(){
       if (s.sizeMode)  { sizeMode  = s.sizeMode;  selectChip('sizeChips',  sizeMode); }
       if (s.scoreRows) { scoreRows = s.scoreRows; selectChip('rowChips', String(scoreRows)); }
       if (typeof s.dim === 'number'){ dim = s.dim; selectChip('dimChips', String(dim)); }
+      if (s.fsMode){
+        fsMode = s.fsMode; fsManual = s.fsManual || 44;
+        selectChip('fsChips', fsMode);
+        document.getElementById('fsSlider').value = fsManual;
+        document.getElementById('fsVal').textContent = fsManual;
+        document.getElementById('fsManualBox').style.display = fsMode === 'manual' ? 'block' : 'none';
+      }
       if (s.fontStyle){
         fontStyle = s.fontStyle; customFont = s.customFont || '';
         selectChip('fontChips', fontStyle);
         document.getElementById('customFontInput').value = customFont;
         const isCustom = fontStyle === 'custom';
         document.getElementById('customFontInput').style.display = isCustom ? 'block' : 'none';
+        document.getElementById('fontListBtn').style.display = isCustom ? 'block' : 'none';
         document.getElementById('fontHint').style.display = isCustom ? 'block' : 'none';
       }
       if (s.bg){ bg = s.bg; fg = s.fg || 'FFFFFF';
@@ -977,7 +1003,9 @@ function render(){
     const warns = [];
     slides.forEach((sl, i) => {
       if (sl.lines.length > 4) warns.push((i+1) + '번: ' + sl.lines.length + '줄 — 4줄 이하 권장');
-      if (sl.fs < FS_MIN) warns.push((i+1) + '번: ' + sl.fs + 'pt로 작아짐 — 줄을 나누거나 가사를 줄여보세요');
+      if (fsMode === 'manual' && sl.fs > sl.autoFs)
+        warns.push((i+1) + '번: ' + sl.fs + 'pt는 화면을 넘칠 수 있어요 (권장 ' + sl.autoFs + 'pt 이하)');
+      if (fsMode === 'auto' && sl.fs < FS_MIN) warns.push((i+1) + '번: ' + sl.fs + 'pt로 작아짐 — 줄을 나누거나 가사를 줄여보세요');
     });
     if (warns.length){
       warnBox.style.display = 'block';
@@ -1032,17 +1060,64 @@ function chipGroup(id, onPick){
 }
 chipGroup('splitChips', v => { splitMode = v; refresh(); });
 chipGroup('sizeChips',  v => { sizeMode  = v; refresh(); });
+chipGroup('fsChips', v => {
+  fsMode = v;
+  document.getElementById('fsManualBox').style.display = v === 'manual' ? 'block' : 'none';
+  refresh();
+});
+document.getElementById('fsSlider').addEventListener('input', e => {
+  fsManual = parseInt(e.target.value, 10);
+  document.getElementById('fsVal').textContent = fsManual;
+  refresh();
+});
 chipGroup('rowChips',   v => { scoreRows = parseInt(v, 10); refresh(); });
 chipGroup('dimChips',   v => { dim = parseInt(v, 10); render(); saveSettings(); });
 chipGroup('fontChips',  v => {
   fontStyle = v;
   const isCustom = v === 'custom';
   document.getElementById('customFontInput').style.display = isCustom ? 'block' : 'none';
+  document.getElementById('fontListBtn').style.display = isCustom ? 'block' : 'none';
   document.getElementById('fontHint').style.display = isCustom ? 'block' : 'none';
+  if (!isCustom) document.getElementById('fontSelect').style.display = 'none';
   refresh();
 });
 document.getElementById('customFontInput').addEventListener('input', e => {
   customFont = e.target.value;
+  refresh();
+});
+
+// 설치된 폰트 목록: 공식 API(크롬) 우선, 안 되면 흔한 한글 폰트 설치여부 감지
+const COMMON_KR_FONTS = ['맑은 고딕','바탕','돋움','굴림','궁서','새굴림','휴먼둥근헤드라인','HY견고딕','HY견명조','HY헤드라인M','함초롬바탕','함초롬돋움','나눔고딕','나눔명조','나눔스퀘어','나눔스퀘어라운드','나눔바른고딕','나눔손글씨 펜','나눔손글씨 붓','Pretendard','에스코어 드림','G마켓 산스','G마켓 산스 TTF Bold','배달의민족 주아','배달의민족 도현','배달의민족 한나체 Air','여기어때 잘난체','카페24 써라운드','카페24 아네모네','검은고딕','조선일보명조','KoPubWorld돋움체','KoPubWorld바탕체','Apple SD Gothic Neo','AppleMyungjo','Noto Sans KR','Noto Serif KR','SUIT','IBM Plex Sans KR','고운돋움','고운바탕','마루 부리','학교안심 우주','어그로체'];
+document.getElementById('fontListBtn').onclick = async () => {
+  const btn = document.getElementById('fontListBtn');
+  const sel = document.getElementById('fontSelect');
+  btn.textContent = '불러오는 중…';
+  let names = [];
+  try {
+    if (window.queryLocalFonts){
+      const fonts = await window.queryLocalFonts();   // 권한 팝업이 뜰 수 있어요
+      names = [...new Set(fonts.map(f => f.family))];
+    }
+  } catch (e){ /* 권한 거부/미지원 → 폴백 */ }
+  if (!names.length){
+    names = COMMON_KR_FONTS.filter(n => {
+      try { return document.fonts.check('16px "' + n + '"'); } catch (e){ return false; }
+    });
+  }
+  if (!names.length){
+    btn.textContent = '목록을 가져올 수 없어요 — 위 칸에 이름을 직접 입력해주세요';
+    return;
+  }
+  names.sort((a, b) => a.localeCompare(b, 'ko'));
+  sel.innerHTML = '<option value="">— 폰트 고르기 (' + names.length + '개 발견) —</option>' +
+    names.map(n => '<option value="' + n.replace(/"/g,'&quot;') + '">' + n.replace(/</g,'&lt;') + '</option>').join('');
+  sel.style.display = 'block';
+  btn.textContent = '이 기기에 설치된 폰트 목록 불러오기';
+};
+document.getElementById('fontSelect').addEventListener('change', e => {
+  if (!e.target.value) return;
+  customFont = e.target.value;
+  document.getElementById('customFontInput').value = customFont;
   refresh();
 });
 function resetAnimChips(){

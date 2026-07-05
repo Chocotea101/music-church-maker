@@ -1,0 +1,7 @@
+# 빌드 산출물 (Tauri/Vite 도입 시)
+/target/
+node_modules/
+dist/
+/src-tauri/target/
+# OS
+.DS_Store

@@ -1,6 +1,6 @@
 {
-  "version": "5.4",
+  "version": "5.6",
   "file": "https://raw.githubusercontent.com/Chocotea101/music-church-maker/main/music-church-maker.html",
   "link": "https://github.com/Chocotea101/music-church-maker",
-  "notes": "원클릭 업데이트 다운로드 추가"
+  "notes": "직접 크기 조절 + 설치 폰트 목록 불러오기"
 }
