@@ -1,0 +1,1081 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>가사 슬라이드 메이커</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pptxgenjs/3.12.0/pptxgen.bundle.js"></script>
+<style>
+  :root{
+    --bg:#101014; --panel:#1a1a21; --panel2:#22222b;
+    --ink:#f2f0ea; --sub:#9a97a3; --line:#2e2e39;
+    --amber:#f5c34d; --amber-deep:#c99416;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{
+    background:var(--bg); color:var(--ink);
+    font-family:"Apple SD Gothic Neo","Malgun Gothic","맑은 고딕",sans-serif;
+    min-height:100vh;
+  }
+  .wrap{max-width:960px; margin:0 auto; padding:20px 16px 60px;}
+  header{display:flex; align-items:baseline; gap:10px; margin-bottom:14px;}
+  header h1{font-size:20px; font-weight:800; letter-spacing:-.02em;}
+  header h1 .dot{color:var(--amber);}
+  header p{font-size:12px; color:var(--sub);}
+
+  .tabs{display:flex; gap:8px; margin-bottom:14px;}
+  .tab{
+    flex:1; text-align:center; padding:12px; border-radius:10px;
+    background:var(--panel); border:1px solid var(--line); color:var(--sub);
+    font-size:14px; font-weight:700; cursor:pointer; user-select:none;
+  }
+  .tab.on{border-color:var(--amber); color:var(--amber); background:rgba(245,195,77,.07);}
+
+  /* ── 미리보기 ── */
+  .stage{
+    position:relative; width:100%; aspect-ratio:16/9;
+    background:#000 center/cover no-repeat; border-radius:10px; overflow:hidden;
+    border:1px solid var(--line);
+    box-shadow:0 0 0 6px #17171d, 0 20px 50px rgba(0,0,0,.55);
+  }
+  .stage .overlay{position:absolute; inset:0; background:#000; opacity:0; pointer-events:none;}
+  .stage .lyric{
+    position:absolute; inset:0;
+    display:flex; flex-direction:column; justify-content:center; align-items:center;
+    text-align:center; line-height:1.5;
+    font-weight:700; user-select:none;
+  }
+  .stage .lyric.shadowed{text-shadow:0 3px 16px rgba(0,0,0,.55), 0 1px 3px rgba(0,0,0,.5);}
+  .stage .lyric.serif{
+    font-family:"AppleMyungjo","Nanum Myeongjo","Batang","바탕",serif;
+    font-weight:600; letter-spacing:.05em;
+  }
+  .stage .lyric .hl{color:var(--amber);}
+  .stage .lyric .hl.dark{color:#B8860B;}
+  .stage .scoreimg{
+    position:absolute; left:50%; top:50%; transform:translate(-50%,-50%);
+    max-width:86%; max-height:82%;
+    display:none; pointer-events:none;
+  }
+  .stage .empty{
+    position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+    color:#55525e; font-size:14px; text-align:center; padding:0 20px; line-height:1.7;
+  }
+  .stage .badge{
+    position:absolute; left:10px; top:8px; font-size:11px; color:#c9c6d2;
+    background:rgba(0,0,0,.5); padding:3px 8px; border-radius:20px;
+    border:1px solid rgba(255,255,255,.1); z-index:3;
+  }
+  .stage .fsbadge{
+    position:absolute; right:10px; top:8px; font-size:11px; color:var(--amber);
+    background:rgba(0,0,0,.5); padding:3px 8px; border-radius:20px;
+    border:1px solid rgba(245,195,77,.25); font-variant-numeric:tabular-nums; z-index:3;
+  }
+  .warn{
+    display:none; margin-top:8px; font-size:12px; color:#f0a05a;
+    background:rgba(240,160,90,.08); border:1px solid rgba(240,160,90,.25);
+    padding:8px 10px; border-radius:8px;
+  }
+  .nav{display:flex; align-items:center; justify-content:center; gap:14px; margin-top:12px;}
+  .nav button{
+    background:var(--panel2); color:var(--ink); border:1px solid var(--line);
+    width:44px; height:44px; border-radius:50%; font-size:18px; cursor:pointer;
+  }
+  .nav button:active{background:#2c2c37;}
+  .nav .count{font-size:14px; color:var(--sub); min-width:70px; text-align:center; font-variant-numeric:tabular-nums;}
+
+  .panel{background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:16px; margin-top:16px;}
+  .panel h2{font-size:12px; font-weight:700; color:var(--sub); letter-spacing:.14em; margin-bottom:12px;}
+  textarea{
+    width:100%; min-height:180px; resize:vertical;
+    background:var(--bg); color:var(--ink); border:1px solid var(--line);
+    border-radius:8px; padding:12px; font-size:15px; line-height:1.7; font-family:inherit;
+  }
+  textarea:focus{outline:none; border-color:var(--amber-deep);}
+  #scoreText{font-size:13px; min-height:200px;}
+  .hint{font-size:12px; color:var(--sub); margin-top:8px; line-height:1.6;}
+  .hint .hl{color:var(--amber);}
+
+  .grid{display:grid; grid-template-columns:1fr 1fr; gap:14px;}
+  @media (max-width:560px){.grid{grid-template-columns:1fr;}}
+  .field label{display:block; font-size:12px; color:var(--sub); margin-bottom:6px;}
+  input[type="text"]{
+    width:100%; background:var(--bg); color:var(--ink);
+    border:1px solid var(--line); border-radius:8px; padding:10px; font-size:14px; font-family:inherit;
+  }
+  .chips{display:flex; gap:8px; flex-wrap:wrap;}
+  .chip{
+    padding:8px 14px; border-radius:20px; border:1px solid var(--line);
+    background:var(--bg); color:var(--sub); font-size:13px; cursor:pointer; user-select:none;
+  }
+  .chip.on{border-color:var(--amber); color:var(--amber); background:rgba(245,195,77,.08);}
+  .swatches{display:flex; gap:8px; align-items:center; flex-wrap:wrap;}
+  .sw{width:34px; height:34px; border-radius:8px; border:2px solid transparent; cursor:pointer; flex:none;}
+  .sw.on{border-color:var(--amber);}
+  .sw.imgbtn{
+    width:auto; padding:0 12px; height:34px; display:flex; align-items:center;
+    background:var(--bg); border:1px dashed var(--line); color:var(--sub);
+    font-size:12px; border-radius:8px;
+  }
+  .sw.imgbtn.on{border:2px solid var(--amber); color:var(--amber);}
+  .imgthumb{display:none; margin-top:10px; gap:10px; align-items:center;}
+  .imgthumb img{width:80px; height:45px; object-fit:cover; border-radius:6px; border:1px solid var(--line);}
+  .imgthumb .rm{
+    background:none; border:1px solid var(--line); color:var(--sub);
+    font-size:12px; padding:6px 10px; border-radius:6px; cursor:pointer;
+  }
+  .giftag{font-size:11px; color:var(--amber);}
+
+  .scoreUpload{
+    border:1px dashed var(--line); border-radius:10px; padding:18px;
+    text-align:center; color:var(--sub); font-size:13px; cursor:pointer;
+  }
+  .scoreUpload:active{background:var(--panel2);}
+  .scoreUpload img{max-width:100%; max-height:220px; border-radius:8px; margin-top:10px;}
+  .aiBtn{
+    width:100%; margin-top:12px; padding:14px;
+    background:#2b2440; color:#d9c9ff; border:1px solid #4a3d70; border-radius:10px;
+    font-size:14px; font-weight:800; cursor:pointer; font-family:inherit;
+  }
+  .aiBtn:disabled{opacity:.45; cursor:default;}
+
+  .exports{display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:16px;}
+  @media (max-width:560px){.exports{grid-template-columns:1fr;}}
+  .export{
+    padding:16px 10px; border:none; border-radius:10px;
+    font-size:15px; font-weight:800; cursor:pointer; font-family:inherit; letter-spacing:-.01em;
+  }
+  .export.ppt{background:var(--amber); color:#191203;}
+  .export.key{background:#2e2e39; color:var(--ink); border:1px solid #3d3d4a;}
+  .export:active{filter:brightness(.9);}
+  .export:disabled{background:#3a3a45; color:#77747f; cursor:default; border:none;}
+  .export small{display:block; font-weight:500; font-size:11px; opacity:.75; margin-top:3px;}
+
+  details.theory{margin-top:16px; border:1px solid var(--line); border-radius:12px; background:var(--panel);}
+  details.theory summary{padding:14px 16px; font-size:13px; font-weight:700; color:var(--sub); cursor:pointer; list-style:none;}
+  details.theory summary::before{content:"▸ "; color:var(--amber);}
+  details.theory[open] summary::before{content:"▾ ";}
+  details.theory .body{padding:0 16px 16px; font-size:13px; color:#c5c2cd; line-height:1.8;}
+  details.theory code{color:var(--amber); font-size:12px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>가사 슬라이드 메이커<span class="dot">.</span></h1>
+    <p id="verBadge">v5.1</p>
+  </header>
+  <div id="updateBanner" style="display:none; margin-bottom:12px; padding:12px 14px; border-radius:10px; background:rgba(245,195,77,.1); border:1px solid rgba(245,195,77,.4); font-size:13px; line-height:1.6">
+    <b style="color:var(--amber)">새 버전이 나왔어요!</b> <span id="updateMsg"></span>
+    <a id="updateLink" href="#" target="_blank" style="color:var(--amber); font-weight:700"></a>
+    <span id="updateClose" style="float:right; cursor:pointer; color:var(--sub)">✕</span>
+  </div>
+
+  <div class="tabs">
+    <div class="tab on" id="tabLyrics">가사 자막</div>
+    <div class="tab" id="tabScore">악보 자막 (음표+가사)</div>
+  </div>
+
+  <!-- 미리보기 -->
+  <div class="stage" id="stage">
+    <div class="overlay" id="overlay"></div>
+    <div class="badge" id="pageBadge">—</div>
+    <div class="fsbadge" id="fsBadge">— pt</div>
+    <div class="lyric" id="lyric"></div>
+    <img class="scoreimg" id="scoreImg" alt="">
+    <div class="empty" id="emptyMsg">아래에 가사를 붙여넣으면 여기 미리보기가 떠요</div>
+  </div>
+  <div class="warn" id="warnBox"></div>
+  <div class="nav">
+    <button id="prevBtn">‹</button>
+    <div class="count" id="counter">0 / 0</div>
+    <button id="nextBtn">›</button>
+  </div>
+
+  <!-- ── 가사 모드 ── -->
+  <div id="lyricsMode">
+    <div class="panel">
+      <h2>가사 입력</h2>
+      <textarea id="lyricsInput" placeholder="위대하신 주 온 땅 다스리네&#10;모든 이 기뻐하며 *주를 찬양해*&#10;&#10;위대하신 주 노래하리라&#10;위대하신 주"></textarea>
+      <div class="hint">빈 줄 = 슬라이드 나누기 (1줄/2줄/4줄 모드에선 무시하고 줄 수대로 잘라요)<br>
+      <span class="hl">*별표*</span>로 감싼 단어는 금색으로 강조돼요 — 예: 모든 이 기뻐하며 *주를 찬양해*</div>
+    </div>
+
+    <div class="panel">
+      <h2>배치 설정</h2>
+      <div class="grid">
+        <div class="field">
+          <label>슬라이드 나누기</label>
+          <div class="chips" id="splitChips">
+            <div class="chip on" data-v="blank">빈 줄 기준</div>
+            <div class="chip" data-v="1">1줄씩</div>
+            <div class="chip" data-v="2">2줄씩</div>
+            <div class="chip" data-v="4">4줄씩</div>
+          </div>
+        </div>
+        <div class="field">
+          <label>글자 크기</label>
+          <div class="chips" id="sizeChips">
+            <div class="chip on" data-v="uniform">전체 통일 (권장)</div>
+            <div class="chip" data-v="per">슬라이드별 최대</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 악보 모드 ── -->
+  <div id="scoreMode" style="display:none">
+    <div class="panel">
+      <h2>악보 사진 → AI 읽기</h2>
+      <div class="scoreUpload" id="scoreUpload">
+        악보 사진/스캔을 올려주세요 (탭해서 선택)
+        <img id="sheetPreview" style="display:none">
+      </div>
+      <input type="file" id="sheetFile" accept="image/png,image/jpeg,image/webp" hidden>
+      <div class="field" style="margin-top:12px">
+        <label>정확한 가사 붙여넣기 (선택 — 넣으면 AI가 가사는 이대로 쓰고 악보에선 음정만 읽어요)</label>
+        <textarea id="knownLyrics" style="min-height:90px" placeholder="위대하신 주 온 땅 다스리네&#10;모든 이 기뻐하며 주를 찬양해"></textarea>
+      </div>
+      <button class="aiBtn" id="aiReadBtn" disabled>AI로 악보 읽기 (조성·박자·멜로디·가사 추출)</button>
+      <div class="hint">한 번에 한 페이지씩이 정확해요. AI가 음을 틀리게 읽을 수 있으니 아래에서 직접 고칠 수 있어요.</div>
+    </div>
+
+    <div class="panel">
+      <h2>다른 AI로 읽히기 (프롬프트 복사)</h2>
+      <div class="hint" style="margin-top:0; margin-bottom:10px">
+        ChatGPT·Gemini 등 다른 AI에 <b>악보 사진 + 아래 프롬프트</b>를 붙여넣고,
+        나온 결과를 그대로 아래 '멜로디·가사 데이터' 칸에 붙여넣으면 똑같이 만들어져요.
+      </div>
+      <textarea id="promptBox" readonly style="min-height:150px; font-size:12px; color:#b9b6c2"></textarea>
+      <button class="aiBtn" id="copyPromptBtn" style="background:#1f3326; color:#b8e6c4; border-color:#37543f">프롬프트 복사하기</button>
+    </div>
+
+    <div class="panel">
+      <h2>멜로디·가사 데이터 (직접 수정 가능)</h2>
+      <div class="field" style="margin-bottom:12px">
+        <label>슬라이드당 단(줄) 수</label>
+        <div class="chips" id="rowChips">
+          <div class="chip on" data-v="1">1단씩</div>
+          <div class="chip" data-v="2">2단씩</div>
+          <div class="chip" data-v="3">3단씩</div>
+        </div>
+      </div>
+      <textarea id="scoreText" placeholder="[제목] 위대하신 주&#10;[조성] G&#10;[박자] 4/4&#10;위=D4 대=G4 하=A4 신=B4/h 주=A4&#10;온=B4 땅=B4 다=A4 스=G4 리=A4 네=G4/h"></textarea>
+      <div class="hint">
+        한 줄 = 한 단. <b>음절=음이름</b> 형식. C4=가온 도, 반음은 F#4/Bb4, 길이는 /h /8 /16 /w.
+      </div>
+    </div>
+  </div>
+
+  <!-- 공통: 디자인 -->
+  <div class="panel">
+    <h2>디자인</h2>
+    <div class="grid">
+      <div class="field">
+        <label>분위기 배경 (자동 생성)</label>
+        <div class="chips" id="themeChips">
+          <div class="chip on" data-v="none">단색</div>
+          <div class="chip" data-v="dawn">새벽 빛</div>
+          <div class="chip" data-v="night">밤하늘</div>
+          <div class="chip" data-v="warm">따뜻한 빛</div>
+        </div>
+      </div>
+      <div class="field">
+        <label>글꼴 분위기</label>
+        <div class="chips" id="fontChips">
+          <div class="chip on" data-v="gothic">고딕 (또렷)</div>
+          <div class="chip" data-v="serif">명조 (우아)</div>
+        </div>
+      </div>
+      <div class="field">
+        <label>단색 배경 / 사진·GIF</label>
+        <div class="swatches" id="bgSwatches">
+          <div class="sw on" data-bg="000000" data-fg="FFFFFF" style="background:#000"></div>
+          <div class="sw" data-bg="0B1B33" data-fg="FFFFFF" style="background:#0B1B33"></div>
+          <div class="sw" data-bg="1F1300" data-fg="FFE9B8" style="background:#1F1300"></div>
+          <div class="sw" data-bg="FFFFFF" data-fg="111111" style="background:#fff"></div>
+          <div class="sw imgbtn" id="imgBtn">이미지/GIF 올리기</div>
+          <input type="file" id="imgFile" accept="image/png,image/jpeg,image/gif,image/webp" hidden>
+        </div>
+        <div class="imgthumb" id="imgThumb">
+          <img id="imgPreview" alt="">
+          <span class="giftag" id="gifTag"></span>
+          <button class="rm" id="imgRemove">배경 이미지 빼기</button>
+        </div>
+      </div>
+      <div class="field" id="dimField" style="display:none">
+        <label>이미지 위 글자 잘 보이게 (어둡게)</label>
+        <div class="chips" id="dimChips">
+          <div class="chip" data-v="0">안 함</div>
+          <div class="chip on" data-v="35">35%</div>
+          <div class="chip" data-v="55">55%</div>
+        </div>
+      </div>
+      <div class="field">
+        <label>제목 슬라이드 (비우면 생략)</label>
+        <input type="text" id="titleInput" placeholder="예: 위대하신 주">
+      </div>
+      <div class="field">
+        <label>부제 (제목 위 작은 글씨 — 예: 영어 제목, 성경 구절)</label>
+        <input type="text" id="subtitleInput" placeholder="예: The Way, The Truth and The Life">
+      </div>
+    </div>
+  </div>
+
+  <div class="exports">
+    <button class="export ppt" id="exportPpt" disabled>PowerPoint용 내보내기<small>.pptx</small></button>
+    <button class="export key" id="exportKey" disabled>Keynote용 내보내기<small>.pptx를 Keynote로 열기</small></button>
+  </div>
+  <div class="hint">Keynote는 .key 파일을 직접 만들 수 없어서, Keynote에 최적화한 .pptx를 내보내요(Keynote에서 열면 그대로 변환). GIF 배경은 <b>슬라이드쇼 재생 중</b>에 움직여요.</div>
+
+  <details class="theory">
+    <summary>가독성 배치 이론 — 이 도구가 크기를 정하는 방법</summary>
+    <div class="body">
+      <b>1. 두 가지 제약의 최소값이 폰트 크기.</b><br>
+      가로: <code>크기 ≤ 72 × 가용폭(inch) ÷ 최장 줄의 폭계수</code><br>
+      세로: <code>크기 ≤ 72 × 가용높이 ÷ (줄 수 × 행간 1.5)</code><br><br>
+      <b>2. 한글은 전각.</b> 글자당 폭 = 1em, 공백·영문·숫자 ≈ 0.55em으로 실제 줄 폭을 추정.<br><br>
+      <b>3. 안전 여백.</b> 좌우 7%, 상하 10% — 빔 스크린 가장자리 잘림 대비.<br><br>
+      <b>4. 슬라이드당 1~4줄</b>, 전곡 폰트 통일(기본), 상한 60pt·하한 28pt.<br><br>
+      <b>5. 무드 배경 = 비네트 + 은은한 빛.</b> 가장자리를 어둡게(비네트) 해서 시선을 중앙 가사로 모으고, 저채도의 빛 번짐으로 분위기를 만들되 글자 뒤는 어둡게 유지해 대비를 지켜요. 글자엔 옅은 그림자를 깔아 어떤 배경에서도 떠 보이게 해요.<br><br>
+      <b>6. 강조는 한 곳만.</b> 금색 강조(*별표*)는 슬라이드당 한 구절 정도가 효과적이에요. 다 강조하면 아무것도 강조되지 않아요.
+    </div>
+  </details>
+</div>
+
+<script>
+// ══════════ 버전 & 업데이트 확인 ══════════
+const APP_VERSION = '5.1';
+// 아래 주소의 version.json을 실행할 때마다 확인해서 새 버전 공지를 띄워요.
+// version.json 형식: {"version":"5.2","link":"다운로드 주소","notes":"바뀐 점 한 줄"}
+const UPDATE_CHECK_URL = 'https://raw.githubusercontent.com/Chocotea101/music-church-maker/main/version.json';
+
+document.getElementById('verBadge').textContent = 'v' + APP_VERSION;
+function newerThan(remote, local){
+  const a = String(remote).split('.').map(Number), b = String(local).split('.').map(Number);
+  for (let i = 0; i < Math.max(a.length, b.length); i++){
+    const x = a[i] || 0, y = b[i] || 0;
+    if (x > y) return true; if (x < y) return false;
+  }
+  return false;
+}
+(async function checkUpdate(){
+  if (!UPDATE_CHECK_URL) return;
+  try {
+    const res = await fetch(UPDATE_CHECK_URL, { cache: 'no-store' });
+    const info = await res.json();
+    if (info.version && newerThan(info.version, APP_VERSION)){
+      document.getElementById('updateMsg').textContent =
+        'v' + info.version + (info.notes ? ' — ' + info.notes : '') + ' ';
+      const a = document.getElementById('updateLink');
+      if (info.link){ a.href = info.link; a.textContent = '다운로드 →'; }
+      document.getElementById('updateBanner').style.display = 'block';
+    }
+  } catch (e){ /* 오프라인이거나 차단된 환경이면 조용히 넘어감 */ }
+})();
+document.getElementById('updateClose').onclick = () =>
+  document.getElementById('updateBanner').style.display = 'none';
+
+// ══════════ 공통 상수 ══════════
+const SLIDE_W = 13.333, SLIDE_H = 7.5;
+const MARGIN_X = 0.07, MARGIN_Y = 0.10;
+const USABLE_W = SLIDE_W * (1 - MARGIN_X * 2);
+const USABLE_H = SLIDE_H * (1 - MARGIN_Y * 2);
+const LINE_H = 1.5;
+const FS_MAX = 60, FS_MIN = 28;
+const CHAR_W_FULL = 1.02, CHAR_W_HALF = 0.55;
+const ACCENT_DARKBG = 'F5C34D', ACCENT_LIGHTBG = 'B8860B';
+
+// ══════════ 상태 ══════════
+let mode = 'lyrics';
+let slides = [], cur = 0;
+let scoreSlides = [];
+let scoreMeta = { title:'', key:'C', time:'4/4' };
+let splitMode = 'blank', sizeMode = 'uniform';
+let bg = '000000', fg = 'FFFFFF';
+let bgImage = null, bgIsGif = false, dim = 35;
+let themeName = 'none', themeBg = null;
+let fontStyle = 'gothic';
+let sheetData = null, sheetType = null;
+let scoreRows = 1;
+
+function effectiveBg(){ return bgImage || themeBg; }
+function onLightBg(){ return !effectiveBg() && fg === '111111'; }
+function accentHex(){ return onLightBg() ? ACCENT_LIGHTBG : ACCENT_DARKBG; }
+
+// ══════════ 분위기 배경 생성 ══════════
+const themeCache = {};
+function radial(ctx, x, y, r, rgba){
+  const g = ctx.createRadialGradient(x, y, 0, x, y, r);
+  g.addColorStop(0, rgba); g.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = g; ctx.fillRect(0, 0, 1920, 1080);
+}
+function vignette(ctx){
+  const g = ctx.createRadialGradient(960, 540, 380, 960, 540, 1150);
+  g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, 'rgba(0,0,0,0.6)');
+  ctx.fillStyle = g; ctx.fillRect(0, 0, 1920, 1080);
+}
+function genThemeBg(name){
+  if (themeCache[name]) return themeCache[name];
+  const cv = document.createElement('canvas');
+  cv.width = 1920; cv.height = 1080;
+  const ctx = cv.getContext('2d');
+  // 시드 고정 난수 (매번 같은 그림)
+  let seed = 7;
+  const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+
+  if (name === 'dawn'){
+    ctx.fillStyle = '#04080c'; ctx.fillRect(0, 0, 1920, 1080);
+    radial(ctx, 420, 220, 1300, 'rgba(28,72,86,0.50)');
+    radial(ctx, 1620, 940, 1000, 'rgba(16,42,64,0.35)');
+    for (let i = 0; i < 14; i++)
+      radial(ctx, rnd()*1920, rnd()*1080, 60 + rnd()*160, 'rgba(120,180,200,' + (0.03 + rnd()*0.05) + ')');
+  } else if (name === 'night'){
+    ctx.fillStyle = '#060a18'; ctx.fillRect(0, 0, 1920, 1080);
+    radial(ctx, 960, 1250, 1200, 'rgba(46,66,130,0.30)');
+    for (let i = 0; i < 170; i++){
+      const x = rnd()*1920, y = rnd()*1080, r = 0.6 + rnd()*1.7;
+      ctx.fillStyle = 'rgba(255,255,255,' + (0.12 + rnd()*0.7) + ')';
+      ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI*2); ctx.fill();
+    }
+    for (let i = 0; i < 5; i++)
+      radial(ctx, rnd()*1920, rnd()*500, 120 + rnd()*180, 'rgba(150,170,255,0.05)');
+  } else if (name === 'warm'){
+    ctx.fillStyle = '#120b05'; ctx.fillRect(0, 0, 1920, 1080);
+    radial(ctx, 960, 1120, 1250, 'rgba(196,124,42,0.30)');
+    radial(ctx, 960, 1180, 620, 'rgba(255,186,92,0.18)');
+    for (let i = 0; i < 10; i++)
+      radial(ctx, 400 + rnd()*1120, 600 + rnd()*480, 40 + rnd()*110, 'rgba(255,200,120,' + (0.04 + rnd()*0.06) + ')');
+  }
+  vignette(ctx);
+  const url = cv.toDataURL('image/jpeg', 0.88);
+  themeCache[name] = url;
+  return url;
+}
+
+// ══════════ 가사 파싱 (*강조*) ══════════
+function parseRuns(line){
+  const runs = [];
+  const re = /\*([^*]+)\*/g;
+  let last = 0, m;
+  while (m = re.exec(line)){
+    if (m.index > last) runs.push({ t: line.slice(last, m.index), hl: false });
+    runs.push({ t: m[1], hl: true });
+    last = m.index + m[0].length;
+  }
+  if (last < line.length) runs.push({ t: line.slice(last), hl: false });
+  if (!runs.length) runs.push({ t: line, hl: false });
+  return runs;
+}
+const stripMarks = s => s.replace(/\*/g, '');
+
+// ══════════ 가사 모드: 크기 계산 ══════════
+function lineUnits(line){
+  let u = 0;
+  for (const ch of stripMarks(line)){
+    const c = ch.codePointAt(0);
+    const full = (c >= 0xAC00 && c <= 0xD7A3) || (c >= 0x1100 && c <= 0x11FF) ||
+                 (c >= 0x3130 && c <= 0x318F) || (c >= 0x4E00 && c <= 0x9FFF) ||
+                 (c >= 0x3000 && c <= 0x303F) || (c >= 0xFF00 && c <= 0xFFEF);
+    u += full ? CHAR_W_FULL : CHAR_W_HALF;
+  }
+  return u;
+}
+function fitFont(lines){
+  const maxU = Math.max(...lines.map(lineUnits), 1);
+  // 명조는 자간을 넓혀서 폭 여유 5% 추가
+  const spacingFactor = fontStyle === 'serif' ? 1.06 : 1.0;
+  const byW = 72 * USABLE_W / (maxU * spacingFactor);
+  const byH = 72 * USABLE_H / (lines.length * LINE_H);
+  return Math.floor(Math.min(byW, byH, FS_MAX));
+}
+function buildLyricSlides(){
+  const raw = document.getElementById('lyricsInput').value.replace(/\r/g,'');
+  const allLines = raw.split('\n').map(s => s.trim());
+  let groups = [];
+  if (splitMode === 'blank'){
+    let g = [];
+    for (const ln of allLines){
+      if (ln === ''){ if (g.length) groups.push(g); g = []; }
+      else g.push(ln);
+    }
+    if (g.length) groups.push(g);
+  } else {
+    const n = parseInt(splitMode, 10);
+    const flat = allLines.filter(l => l !== '');
+    for (let i = 0; i < flat.length; i += n) groups.push(flat.slice(i, i + n));
+  }
+  slides = groups.map(lines => ({ lines, fs: fitFont(lines) }));
+  if (sizeMode === 'uniform' && slides.length){
+    const minFs = Math.min(...slides.map(s => s.fs));
+    slides.forEach(s => s.fs = minFs);
+  }
+}
+
+// ══════════ 악보 모드: 파싱 ══════════
+function parseScoreText(){
+  const raw = document.getElementById('scoreText').value.replace(/\r/g,'');
+  const meta = { title:'', key:'C', time:'4/4' };
+  const phrases = [];
+  for (let line of raw.split('\n')){
+    line = line.trim();
+    if (!line) continue;
+    let m;
+    if (m = line.match(/^\[제목\]\s*(.*)$/)){ meta.title = m[1].trim(); continue; }
+    if (m = line.match(/^\[조성\]\s*(.*)$/)){ meta.key = m[1].trim() || 'C'; continue; }
+    if (m = line.match(/^\[박자\]\s*(.*)$/)){ meta.time = m[1].trim() || '4/4'; continue; }
+    const notes = [];
+    for (const tok of line.split(/\s+/)){
+      const t = tok.match(/^(.+?)=([A-Ga-g][#b]?\d)(?:\/(w|h|q|8|16))?$/);
+      if (t) notes.push({ s: t[1], p: t[2].toUpperCase(), d: t[3] || 'q' });
+      else notes.push({ s: tok, p: null, d: 'q' });
+    }
+    if (notes.length) phrases.push(notes);
+  }
+  scoreMeta = meta;
+  return phrases;
+}
+
+// ══════════ 오선보 렌더링 ══════════
+const KEY_SIG = {'C':0,'G':1,'D':2,'A':3,'E':4,'B':5,'F#':6,'C#':7,
+                 'F':-1,'BB':-2,'EB':-3,'AB':-4,'DB':-5,'GB':-6};
+const KEY_SIG_MIN = {'A':0,'E':1,'B':2,'F#':3,'C#':4,'G#':5,'D':-1,'G':-2,'C':-3,'F':-4,'BB':-5};
+function keyAccidentals(keyName){
+  let k = (keyName || 'C').trim();
+  const minor = /m(in)?$/i.test(k);
+  k = k.replace(/m(in)?$/i,'').toUpperCase().replace('♯','#').replace('♭','B');
+  const map = minor ? KEY_SIG_MIN : KEY_SIG;
+  return (k in map) ? map[k] : 0;
+}
+const LETTER_IDX = {C:0, D:1, E:2, F:3, G:4, A:5, B:6};
+function pitchSteps(p){
+  const m = p.match(/^([A-G])([#b]?)(\d)$/i);
+  if (!m) return null;
+  const di = LETTER_IDX[m[1].toUpperCase()] + (parseInt(m[3],10) - 4) * 7;
+  return { steps: di - 2, acc: m[2] };
+}
+const SHARP_POS = [8,5,9,6,3,7,4], FLAT_POS = [4,7,3,6,2,5,1];
+
+function lyricFontStack(px, bold){
+  return (bold ? 'bold ' : '600 ') + px + 'px ' + (fontStyle === 'serif'
+    ? '"AppleMyungjo","Nanum Myeongjo","Batang","바탕",serif'
+    : '"Apple SD Gothic Neo","Malgun Gothic",sans-serif');
+}
+
+function drawPhrase(phrase, keyName, timeSig, ink){
+  const W = 1920, H = 560;
+  const cv = document.createElement('canvas');
+  cv.width = W; cv.height = H;
+  const ctx = cv.getContext('2d');
+  const SP = 22;
+  const topY = 150, botY = topY + 4 * SP;
+  const stepY = s => botY - s * SP / 2;
+
+  ctx.strokeStyle = ink; ctx.fillStyle = ink;
+  ctx.lineWidth = 2.5; ctx.lineCap = 'round';
+
+  const staffX0 = 50, staffX1 = W - 50;
+  for (let i = 0; i < 5; i++){
+    ctx.beginPath();
+    ctx.moveTo(staffX0, topY + i * SP);
+    ctx.lineTo(staffX1, topY + i * SP);
+    ctx.stroke();
+  }
+  ctx.font = '150px serif';
+  ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+  ctx.fillText('\u{1D11E}', 62, botY + SP * 1.1);
+
+  const acc = keyAccidentals(keyName);
+  let x = 180;
+  ctx.font = 'bold 52px serif'; ctx.textAlign = 'center';
+  if (acc > 0) for (let i = 0; i < acc; i++){ ctx.fillText('♯', x, stepY(SHARP_POS[i]) + 16); x += 28; }
+  if (acc < 0) for (let i = 0; i < -acc; i++){ ctx.fillText('♭', x, stepY(FLAT_POS[i]) + 12); x += 28; }
+
+  const ts = (timeSig || '4/4').split('/');
+  x += 26;
+  ctx.font = 'bold 62px serif';
+  ctx.fillText(ts[0] || '4', x, topY + SP * 2 - 6);
+  ctx.fillText(ts[1] || '4', x, botY - 2);
+  x += 50;
+
+  const n = phrase.length;
+  const nx0 = Math.max(x + 60, 340), nx1 = W - 90;
+  const gap = n > 1 ? (nx1 - nx0) / (n - 1) : 0;
+
+  phrase.forEach((note, i) => {
+    const cx = n > 1 ? nx0 + gap * i : (nx0 + nx1) / 2;
+    ctx.font = lyricFontStack(52, true);
+    ctx.textAlign = 'center';
+    ctx.fillText(note.s, cx, botY + 155);
+
+    if (!note.p) return;
+    const ps = pitchSteps(note.p);
+    if (!ps) return;
+    const y = stepY(ps.steps);
+
+    ctx.lineWidth = 2.5;
+    for (let s = -2; s >= ps.steps; s -= 2){
+      ctx.beginPath(); ctx.moveTo(cx - 22, stepY(s)); ctx.lineTo(cx + 22, stepY(s)); ctx.stroke();
+    }
+    for (let s = 10; s <= ps.steps; s += 2){
+      ctx.beginPath(); ctx.moveTo(cx - 22, stepY(s)); ctx.lineTo(cx + 22, stepY(s)); ctx.stroke();
+    }
+    if (ps.acc){
+      ctx.font = 'bold 46px serif';
+      ctx.fillText(ps.acc === '#' ? '♯' : '♭', cx - 40, y + 14);
+    }
+    const open = note.d === 'h' || note.d === 'w';
+    ctx.save();
+    ctx.translate(cx, y); ctx.rotate(-0.22);
+    ctx.beginPath(); ctx.ellipse(0, 0, 14, 10, 0, 0, Math.PI * 2);
+    if (open){ ctx.lineWidth = 3.5; ctx.stroke(); } else ctx.fill();
+    ctx.restore();
+    if (note.d !== 'w'){
+      const up = ps.steps < 4;
+      const sx = up ? cx + 13 : cx - 13;
+      const ey = up ? y - SP * 3.4 : y + SP * 3.4;
+      ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.moveTo(sx, y + (up ? -3 : 3)); ctx.lineTo(sx, ey); ctx.stroke();
+      if (note.d === '8' || note.d === '16'){
+        const dir = up ? 1 : -1;
+        const flags = note.d === '16' ? 2 : 1;
+        for (let f = 0; f < flags; f++){
+          ctx.beginPath();
+          ctx.moveTo(sx, ey + dir * f * 14);
+          ctx.quadraticCurveTo(sx + 30, ey + dir * (18 + f * 14), sx + 16, ey + dir * (44 + f * 14));
+          ctx.lineWidth = 4; ctx.stroke();
+        }
+      }
+    }
+  });
+  return cv;
+}
+
+function buildScoreSlides(){
+  const phrases = parseScoreText();
+  const ink = effectiveBg() ? '#FFFFFF' : '#' + fg;
+  const groups = [];
+  for (let i = 0; i < phrases.length; i += scoreRows) groups.push(phrases.slice(i, i + scoreRows));
+  scoreSlides = groups.map(group => {
+    const staves = group.map(ph => drawPhrase(ph, scoreMeta.key, scoreMeta.time, ink));
+    const W = 1920, rowH = 560, H = rowH * staves.length;
+    const cv = document.createElement('canvas');
+    cv.width = W; cv.height = H;
+    const ctx = cv.getContext('2d');
+    staves.forEach((s, i) => ctx.drawImage(s, 0, i * rowH));
+    return { url: cv.toDataURL('image/png'), w: W, h: H };
+  });
+  if (scoreMeta.title && !document.getElementById('titleInput').value)
+    document.getElementById('titleInput').value = scoreMeta.title;
+}
+
+// ══════════ 미리보기 ══════════
+function totalSlides(){ return mode === 'lyrics' ? slides.length : scoreSlides.length; }
+
+function render(){
+  const stage = document.getElementById('stage');
+  const lyric = document.getElementById('lyric');
+  const scoreImg = document.getElementById('scoreImg');
+  const emptyMsg = document.getElementById('emptyMsg');
+  const warnBox = document.getElementById('warnBox');
+  const overlay = document.getElementById('overlay');
+  const effBg = effectiveBg();
+
+  if (effBg){
+    stage.style.backgroundImage = 'url(' + effBg + ')';
+    stage.style.backgroundColor = '#000';
+    overlay.style.opacity = bgImage ? dim / 100 : 0;
+  } else {
+    stage.style.backgroundImage = 'none';
+    stage.style.backgroundColor = '#' + bg;
+    overlay.style.opacity = 0;
+  }
+  document.getElementById('dimField').style.display = bgImage ? '' : 'none';
+
+  const total = totalSlides();
+  document.getElementById('exportPpt').disabled = !total;
+  document.getElementById('exportKey').disabled = !total;
+
+  if (!total){
+    lyric.replaceChildren();
+    scoreImg.style.display = 'none';
+    emptyMsg.style.display = 'flex';
+    emptyMsg.textContent = mode === 'lyrics'
+      ? '아래에 가사를 붙여넣으면 여기 미리보기가 떠요'
+      : '악보 사진을 올려 AI로 읽거나, 아래 칸에 음절=음이름을 직접 적으면 미리보기가 떠요';
+    document.getElementById('counter').textContent = '0 / 0';
+    document.getElementById('pageBadge').textContent = '—';
+    document.getElementById('fsBadge').textContent = mode === 'lyrics' ? '— pt' : '악보';
+    warnBox.style.display = 'none';
+    return;
+  }
+  emptyMsg.style.display = 'none';
+  if (cur >= total) cur = total - 1;
+
+  if (mode === 'lyrics'){
+    scoreImg.style.display = 'none';
+    const s = slides[cur];
+    const pxPerPt = stage.clientWidth / (SLIDE_W * 72);
+    lyric.style.fontSize = (s.fs * pxPerPt) + 'px';
+    lyric.style.color = effBg ? '#FFFFFF' : '#' + fg;
+    lyric.classList.toggle('serif', fontStyle === 'serif');
+    lyric.classList.toggle('shadowed', !!effBg);
+    lyric.replaceChildren(...s.lines.map(line => {
+      const div = document.createElement('div');
+      for (const r of parseRuns(line)){
+        const span = document.createElement('span');
+        span.textContent = r.t;
+        if (r.hl){ span.className = 'hl' + (onLightBg() ? ' dark' : ''); }
+        div.appendChild(span);
+      }
+      return div;
+    }));
+    document.getElementById('fsBadge').textContent = s.fs + ' pt';
+
+    const warns = [];
+    slides.forEach((sl, i) => {
+      if (sl.lines.length > 4) warns.push((i+1) + '번: ' + sl.lines.length + '줄 — 4줄 이하 권장');
+      if (sl.fs < FS_MIN) warns.push((i+1) + '번: ' + sl.fs + 'pt로 작아짐 — 줄을 나누거나 가사를 줄여보세요');
+    });
+    if (warns.length){
+      warnBox.style.display = 'block';
+      warnBox.textContent = '⚠ ' + warns.slice(0,3).join('  ·  ') + (warns.length > 3 ? ' 외 ' + (warns.length-3) + '건' : '');
+    } else warnBox.style.display = 'none';
+  } else {
+    lyric.replaceChildren();
+    scoreImg.style.display = 'block';
+    scoreImg.src = scoreSlides[cur].url;
+    document.getElementById('fsBadge').textContent = scoreMeta.key + ' · ' + scoreMeta.time;
+    warnBox.style.display = 'none';
+  }
+  document.getElementById('counter').textContent = (cur + 1) + ' / ' + total;
+  document.getElementById('pageBadge').textContent = (cur + 1) + '번 슬라이드';
+}
+function refresh(){
+  if (mode === 'lyrics') buildLyricSlides(); else buildScoreSlides();
+  render();
+}
+
+// ══════════ 이벤트 ══════════
+function setMode(m){
+  mode = m; cur = 0;
+  document.getElementById('tabLyrics').classList.toggle('on', m === 'lyrics');
+  document.getElementById('tabScore').classList.toggle('on', m === 'score');
+  document.getElementById('lyricsMode').style.display = m === 'lyrics' ? '' : 'none';
+  document.getElementById('scoreMode').style.display = m === 'score' ? '' : 'none';
+  refresh();
+}
+document.getElementById('tabLyrics').onclick = () => setMode('lyrics');
+document.getElementById('tabScore').onclick = () => setMode('score');
+
+document.getElementById('lyricsInput').addEventListener('input', refresh);
+document.getElementById('scoreText').addEventListener('input', refresh);
+document.getElementById('prevBtn').onclick = () => { if (cur > 0){ cur--; render(); } };
+document.getElementById('nextBtn').onclick = () => { if (cur < totalSlides() - 1){ cur++; render(); } };
+document.getElementById('stage').onclick = () => { const t = totalSlides(); if (t){ cur = (cur + 1) % t; render(); } };
+window.addEventListener('resize', render);
+document.addEventListener('keydown', e => {
+  if (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT') return;
+  if (e.key === 'ArrowLeft') document.getElementById('prevBtn').click();
+  if (e.key === 'ArrowRight') document.getElementById('nextBtn').click();
+});
+function chipGroup(id, onPick){
+  const box = document.getElementById(id);
+  box.addEventListener('click', e => {
+    const c = e.target.closest('.chip'); if (!c) return;
+    box.querySelectorAll('.chip').forEach(x => x.classList.remove('on'));
+    c.classList.add('on'); onPick(c.dataset.v);
+  });
+}
+chipGroup('splitChips', v => { splitMode = v; refresh(); });
+chipGroup('sizeChips',  v => { sizeMode  = v; refresh(); });
+chipGroup('rowChips',   v => { scoreRows = parseInt(v, 10); refresh(); });
+chipGroup('dimChips',   v => { dim = parseInt(v, 10); render(); });
+chipGroup('fontChips',  v => { fontStyle = v; refresh(); });
+chipGroup('themeChips', v => {
+  themeName = v;
+  if (v === 'none'){ themeBg = null; }
+  else {
+    themeBg = genThemeBg(v);
+    // 테마 선택 시 업로드 이미지 해제
+    bgImage = null; bgIsGif = false;
+    document.getElementById('imgThumb').style.display = 'none';
+    document.getElementById('imgBtn').classList.remove('on');
+  }
+  refresh();
+});
+
+document.getElementById('bgSwatches').addEventListener('click', e => {
+  const s = e.target.closest('.sw'); if (!s) return;
+  if (s.id === 'imgBtn'){ document.getElementById('imgFile').click(); return; }
+  document.querySelectorAll('#bgSwatches .sw').forEach(x => x.classList.remove('on'));
+  s.classList.add('on');
+  bg = s.dataset.bg; fg = s.dataset.fg;
+  bgImage = null; bgIsGif = false; themeBg = null; themeName = 'none';
+  document.querySelectorAll('#themeChips .chip').forEach(x => x.classList.toggle('on', x.dataset.v === 'none'));
+  document.getElementById('imgThumb').style.display = 'none';
+  refresh();
+});
+document.getElementById('imgFile').addEventListener('change', e => {
+  const f = e.target.files[0]; if (!f) return;
+  if (f.size > 8 * 1024 * 1024){ alert('8MB 이하 파일로 올려주세요.'); return; }
+  const reader = new FileReader();
+  reader.onload = () => {
+    bgImage = reader.result;
+    bgIsGif = f.type === 'image/gif';
+    themeBg = null; themeName = 'none';
+    document.querySelectorAll('#themeChips .chip').forEach(x => x.classList.toggle('on', x.dataset.v === 'none'));
+    document.querySelectorAll('#bgSwatches .sw').forEach(x => x.classList.remove('on'));
+    document.getElementById('imgBtn').classList.add('on');
+    document.getElementById('imgThumb').style.display = 'flex';
+    document.getElementById('imgPreview').src = bgImage;
+    document.getElementById('gifTag').textContent = bgIsGif ? 'GIF — 슬라이드쇼에서 움직여요' : '';
+    refresh();
+  };
+  reader.readAsDataURL(f);
+  e.target.value = '';
+});
+document.getElementById('imgRemove').onclick = () => {
+  bgImage = null; bgIsGif = false;
+  document.getElementById('imgThumb').style.display = 'none';
+  document.getElementById('imgBtn').classList.remove('on');
+  document.querySelector('#bgSwatches .sw').classList.add('on');
+  bg = '000000'; fg = 'FFFFFF';
+  refresh();
+};
+
+// ══════════ 다른 AI용 프롬프트 ══════════
+const BASE_PROMPT = `첨부한 악보 이미지를 보고, 멜로디(최상단 성부)와 가사를 아래 형식의 텍스트로만 출력해줘. 설명, 인사, 마크다운 코드블록 전부 빼고 결과 텍스트만.
+
+형식:
+[제목] 곡 제목
+[조성] G
+[박자] 4/4
+가사음절=음이름 가사음절=음이름 ...
+
+규칙:
+- 한 줄 = 악보 한 단(한 프레이즈). 프레이즈가 바뀔 때마다 줄을 바꿔
+- 음이름은 과학적 표기: C4=가온 도(중앙 도), D4, E4 ... B4, C5=한 옥타브 위 도. 반음은 F#4, Bb4처럼
+- 음 길이: 4분음표는 표기 생략, 2분음표는 /h, 8분음표는 /8, 16분음표는 /16, 온음표는 /w 를 음이름 뒤에 붙여 (예: 주=A4/h)
+- 조성은 C, G, D, A, E, B, F#, F, Bb, Eb, Ab, Db 또는 단조면 Em, Am처럼
+- 음정이 확실하지 않은 음절은 =음이름 없이 가사 음절만 써
+- 반복 기호(도돌이표)는 펼치지 말고 적힌 순서대로 한 번만
+
+예시 출력:
+[제목] 위대하신 주
+[조성] G
+[박자] 4/4
+위=D4 대=G4 하=A4 신=B4/h 주=A4
+온=B4 땅=B4 다=A4 스=G4 리=A4 네=G4/h`;
+
+function buildExternalPrompt(){
+  const lyr = document.getElementById('knownLyrics').value.trim();
+  if (!lyr) return BASE_PROMPT;
+  return BASE_PROMPT + `
+
+중요 — 아래는 이 곡의 정확한 가사야. 가사 음절은 반드시 아래 텍스트를 음절 단위로 그대로 사용하고(임의로 바꾸거나 추측 금지), 악보 이미지에서는 각 음절에 대응하는 음정과 길이만 읽어. 한 음절이 여러 음에 걸치면(멜리스마) 그 음절을 반복해서 써(예: 주=A4 주=B4).
+
+[정확한 가사]
+` + lyr;
+}
+function refreshPromptBox(){ document.getElementById('promptBox').value = buildExternalPrompt(); }
+refreshPromptBox();
+document.getElementById('knownLyrics').addEventListener('input', refreshPromptBox);
+
+document.getElementById('copyPromptBtn').onclick = async () => {
+  const btn = document.getElementById('copyPromptBtn');
+  const txt = buildExternalPrompt();
+  try {
+    await navigator.clipboard.writeText(txt);
+  } catch (e){
+    const box = document.getElementById('promptBox');
+    box.focus(); box.select();
+    document.execCommand('copy');
+  }
+  btn.textContent = '복사 완료! 다른 AI에 악보 사진과 함께 붙여넣으세요';
+  setTimeout(() => btn.textContent = '프롬프트 복사하기', 2500);
+};
+
+// ══════════ 악보 업로드 & AI 읽기 ══════════
+document.getElementById('scoreUpload').onclick = () => document.getElementById('sheetFile').click();
+document.getElementById('sheetFile').addEventListener('change', e => {
+  const f = e.target.files[0]; if (!f) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    sheetData = reader.result.split(',')[1];
+    sheetType = f.type;
+    const img = document.getElementById('sheetPreview');
+    img.src = reader.result; img.style.display = 'block';
+    document.getElementById('aiReadBtn').disabled = false;
+  };
+  reader.readAsDataURL(f);
+  e.target.value = '';
+});
+
+document.getElementById('aiReadBtn').onclick = async () => {
+  const btn = document.getElementById('aiReadBtn');
+  btn.disabled = true; btn.textContent = 'AI가 악보를 읽는 중… (10~30초)';
+  const lyr = document.getElementById('knownLyrics').value.trim();
+  const lyricRule = lyr
+    ? `\n중요 — 아래는 이 곡의 정확한 가사다. s(가사 음절)는 반드시 이 텍스트를 음절 단위로 그대로 사용하고, 악보에서는 각 음절의 음정과 길이만 읽어라. 멜리스마(한 음절 여러 음)는 음절을 반복.\n[정확한 가사]\n${lyr}`
+    : '';
+  try {
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 1000,
+        messages: [{
+          role: 'user',
+          content: [
+            { type: 'image', source: { type: 'base64', media_type: sheetType, data: sheetData } },
+            { type: 'text', text:
+`이 악보 이미지에서 제목, 조성, 박자, 그리고 멜로디(최상단 성부)와 가사를 추출해.
+반드시 JSON만 출력. 마크다운 백틱, 설명, 다른 텍스트 절대 금지.
+형식: {"title":"곡제목","key":"G","time":"4/4","lines":[[{"s":"위","p":"D4","d":"q"},{"s":"대","p":"G4","d":"q"}],[...]]}
+규칙:
+- lines의 각 배열 = 가사 한 프레이즈(악보의 한 단 또는 한 소절 묶음)
+- s = 가사 음절 하나, p = 과학적 피치 표기(C4=가온 도, 반음은 F#4/Bb4), d = 음길이(w/h/q/8/16, 기본 q)
+- 음정이 확실하지 않으면 p를 null로
+- 후렴 반복 기호는 펼치지 말고 적힌 순서대로 한 번만` + lyricRule }
+          ]
+        }]
+      })
+    });
+    const data = await response.json();
+    if (data.error) throw new Error(data.error.message || 'API 오류');
+    const text = data.content.filter(b => b.type === 'text').map(b => b.text).join('\n');
+    const clean = text.replace(/```json|```/g, '').trim();
+    const parsed = JSON.parse(clean);
+
+    let out = '';
+    if (parsed.title) out += '[제목] ' + parsed.title + '\n';
+    out += '[조성] ' + (parsed.key || 'C') + '\n[박자] ' + (parsed.time || '4/4') + '\n';
+    (parsed.lines || []).forEach(line => {
+      out += line.map(n => {
+        if (!n.p) return n.s;
+        return n.s + '=' + n.p + (n.d && n.d !== 'q' ? '/' + n.d : '');
+      }).join(' ') + '\n';
+    });
+    const box = document.getElementById('scoreText');
+    box.value = box.value.trim() ? box.value.trimEnd() + '\n' + out : out;
+    refresh();
+  } catch (err){
+    alert('악보 읽기 실패: ' + err.message + '\n\n사진을 더 밝고 똑바로 찍어서 다시 시도해보거나, 아래 칸에 직접 입력해도 돼요.');
+  } finally {
+    btn.disabled = false; btn.textContent = 'AI로 악보 읽기 (조성·박자·멜로디·가사 추출)';
+  }
+};
+
+// ══════════ 내보내기 ══════════
+function currentFonts(target){
+  if (fontStyle === 'serif')
+    return target === 'key' ? { face:'AppleMyungjo', spacing:2 } : { face:'바탕', spacing:2 };
+  return target === 'key' ? { face:'Apple SD Gothic Neo', spacing:0 } : { face:'맑은 고딕', spacing:0 };
+}
+
+async function exportDeck(target){
+  const btn = document.getElementById(target === 'key' ? 'exportKey' : 'exportPpt');
+  const orig = btn.innerHTML;
+  btn.disabled = true; btn.textContent = '만드는 중…';
+  try {
+    const F = currentFonts(target);
+    const pptx = new PptxGenJS();
+    pptx.defineLayout({ name: 'W169', width: SLIDE_W, height: SLIDE_H });
+    pptx.layout = 'W169';
+    const title = document.getElementById('titleInput').value.trim();
+    const subtitle = document.getElementById('subtitleInput').value.trim();
+    const effBg = effectiveBg();
+    const textColor = effBg ? 'FFFFFF' : fg;
+    const accent = accentHex();
+    const shadow = effBg ? { type:'outer', color:'000000', opacity:0.55, blur:9, offset:3, angle:90 } : undefined;
+
+    function paintBackground(sl){
+      sl.background = { color: effBg ? '000000' : bg };
+      if (effBg){
+        sl.addImage({ data: effBg, x: 0, y: 0, w: SLIDE_W, h: SLIDE_H });
+        if (bgImage && dim > 0){
+          sl.addShape('rect', {
+            x: 0, y: 0, w: SLIDE_W, h: SLIDE_H,
+            fill: { color: '000000', transparency: 100 - dim },
+            line: { type: 'none' }
+          });
+        }
+      }
+    }
+    // 한 줄 → 색상 런 배열
+    function lineRuns(line, isLastLine){
+      const runs = parseRuns(line).map(r => ({
+        text: r.t, options: { color: r.hl ? accent : textColor }
+      }));
+      if (!isLastLine) runs[runs.length - 1].options.breakLine = true;
+      return runs;
+    }
+
+    if (title){
+      const t = pptx.addSlide();
+      paintBackground(t);
+      if (subtitle){
+        t.addText(subtitle, {
+          x: 0, y: SLIDE_H * 0.30, w: SLIDE_W, h: 0.7,
+          align: 'center', fontFace: F.face, italic: true,
+          fontSize: 20, color: textColor, charSpacing: 3, shadow
+        });
+      }
+      t.addText(title, {
+        x: 0, y: SLIDE_H * 0.36, w: SLIDE_W, h: 2.4,
+        align: 'center', valign: 'middle',
+        fontFace: F.face, bold: true, charSpacing: F.spacing + 2,
+        fontSize: Math.min(fitFont([title]), 54), color: textColor, shadow
+      });
+      if (mode === 'score'){
+        t.addText(scoreMeta.key + '  ·  ' + scoreMeta.time, {
+          x: 0, y: SLIDE_H - 1.5, w: SLIDE_W, h: 0.7,
+          align: 'center', fontFace: F.face, fontSize: 18, color: textColor, shadow
+        });
+      }
+    }
+
+    if (mode === 'lyrics'){
+      slides.forEach(s => {
+        const sl = pptx.addSlide();
+        paintBackground(sl);
+        const allRuns = [];
+        s.lines.forEach((line, i) => allRuns.push(...lineRuns(line, i === s.lines.length - 1)));
+        sl.addText(allRuns, {
+          x: SLIDE_W * MARGIN_X, y: SLIDE_H * MARGIN_Y,
+          w: USABLE_W, h: USABLE_H,
+          align: 'center', valign: 'middle',
+          fontFace: F.face, bold: true, charSpacing: F.spacing,
+          fontSize: s.fs, lineSpacingMultiple: LINE_H, shadow
+        });
+      });
+    } else {
+      scoreSlides.forEach(s => {
+        const sl = pptx.addSlide();
+        paintBackground(sl);
+        let imgW = USABLE_W;
+        let imgH = imgW * s.h / s.w;
+        if (imgH > USABLE_H){ imgH = USABLE_H; imgW = imgH * s.w / s.h; }
+        sl.addImage({ data: s.url, x: (SLIDE_W - imgW) / 2, y: (SLIDE_H - imgH) / 2, w: imgW, h: imgH });
+      });
+    }
+
+    const suffix = target === 'key' ? '_keynote용' : '';
+    const base = title || (mode === 'score' ? '악보슬라이드' : '가사슬라이드');
+    await pptx.writeFile({ fileName: base + suffix + '.pptx' });
+  } catch (err){
+    alert('내보내기 오류: ' + err.message);
+  } finally {
+    btn.disabled = false; btn.innerHTML = orig;
+  }
+}
+document.getElementById('exportPpt').onclick = () => exportDeck('ppt');
+document.getElementById('exportKey').onclick = () => exportDeck('key');
+
+refresh();
+</script>
+</body>
+</html>
