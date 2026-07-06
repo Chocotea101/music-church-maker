@@ -176,7 +176,7 @@
 <div class="wrap">
   <header>
     <h1>가사 슬라이드 메이커<span class="dot">.</span></h1>
-    <p id="verBadge">v5.10</p>
+    <p id="verBadge">v5.11</p>
   </header>
   <!-- 새 버전이 있으면 전체화면으로 막고 업데이트를 요구 (오프라인이면 뜨지 않음) -->
   <div id="updateGate" style="display:none; position:fixed; inset:0; z-index:9999; background:rgba(8,8,12,.93); align-items:center; justify-content:center; padding:22px;">
@@ -220,6 +220,8 @@
   <div class="hint">Keynote는 .key 파일을 직접 만들 수 없어서, Keynote에 최적화한 .pptx를 내보내요(Keynote에서 열면 그대로 변환). GIF 배경은 <b>슬라이드쇼 재생 중</b>에 움직여요.</div>
     <button class="savefile" id="saveFileBtn">💾 이 설정을 담은 파일로 저장</button>
     <div class="hint">지금 설정·가사·배경을 파일 안에 넣어 저장해요. 이 파일을 보내면 받은 사람도 같은 설정으로 열려요 (인터넷 없이도).</div>
+    <button class="savefile" id="gencgTextBtn">📋 자막기(GenCG)용 가사 텍스트 복사</button>
+    <div class="hint">슬라이드별로 나눈 가사를 복사해요 — GenCG 자막 입력칸에 붙여넣으세요. (초록 배경 슬라이드는 아래 '단색 배경'에서 초록 선택 후 PPT/이미지로 내보내면 돼요.)</div>
   </div><!-- /col-preview -->
 
   <div class="col col-controls">
@@ -361,6 +363,7 @@
           <div class="sw" data-bg="0B1B33" data-fg="FFFFFF" style="background:#0B1B33"></div>
           <div class="sw" data-bg="1F1300" data-fg="FFE9B8" style="background:#1F1300"></div>
           <div class="sw" data-bg="FFFFFF" data-fg="111111" style="background:#fff"></div>
+          <div class="sw" data-bg="00FF00" data-fg="FFFFFF" style="background:#00FF00" title="크로마키 초록 (자막기·크로마키용)"></div>
           <div class="sw imgbtn" id="imgBtn">이미지/GIF 올리기</div>
           <input type="file" id="imgFile" accept="image/png,image/jpeg,image/gif,image/webp" hidden>
         </div>
@@ -408,7 +411,7 @@
 
 <script>
 // ══════════ 버전 & 업데이트 확인 ══════════
-const APP_VERSION = '5.10';
+const APP_VERSION = '5.11';
 // 아래 주소의 version.json을 실행할 때마다 확인해서 새 버전 공지를 띄워요.
 // version.json 형식:
 // {"version":"5.3","file":"새 html의 raw 주소","link":"배포 페이지 주소","notes":"바뀐 점 한 줄"}
@@ -732,10 +735,10 @@ function fitFont(lines){
   const byH = 72 * USABLE_H / (lines.length * LINE_H);
   return Math.floor(Math.min(byW, byH, FS_MAX));
 }
-function buildLyricSlides(){
+function lyricGroups(){
   const raw = document.getElementById('lyricsInput').value.replace(/\r/g,'');
   const allLines = raw.split('\n').map(s => s.trim());
-  let groups = [];
+  const groups = [];
   if (splitMode === 'blank'){
     let g = [];
     for (const ln of allLines){
@@ -755,7 +758,10 @@ function buildLyricSlides(){
     }
     if (g.length) groups.push(g);
   }
-  slides = groups.map(lines => {
+  return groups;
+}
+function buildLyricSlides(){
+  slides = lyricGroups().map(lines => {
     const auto = fitFont(lines);
     return { lines, fs: fsMode === 'manual' ? fsManual : auto, autoFs: auto };
   });
@@ -763,6 +769,10 @@ function buildLyricSlides(){
     const minFs = Math.min(...slides.map(s => s.fs));
     slides.forEach(s => s.fs = minFs);
   }
+}
+// GenCG(자막기) 붙여넣기용: 슬라이드별로 나눈 가사를 빈 줄로 구분한 텍스트
+function buildGencgText(){
+  return lyricGroups().map(g => g.map(stripMarks).join('\n')).join('\n\n');
 }
 
 // ══════════ 악보 모드: 파싱 ══════════
@@ -1707,6 +1717,24 @@ function saveFileWithSettings(){
   }
 }
 document.getElementById('saveFileBtn').onclick = saveFileWithSettings;
+
+// ══════════ 자막기(GenCG) 붙여넣기용 가사 텍스트 복사 ══════════
+document.getElementById('gencgTextBtn').onclick = async () => {
+  const btn = document.getElementById('gencgTextBtn');
+  const txt = buildGencgText();
+  if (!txt.trim()){ alert('먼저 왼쪽 아래(가사 자막 탭)에서 가사를 입력해주세요.'); return; }
+  try {
+    await navigator.clipboard.writeText(txt);
+  } catch (e){
+    const ta = document.createElement('textarea');
+    ta.value = txt; document.body.appendChild(ta); ta.select();
+    try { document.execCommand('copy'); } catch (e2){}
+    ta.remove();
+  }
+  const orig = btn.textContent;
+  btn.textContent = '복사 완료! GenCG 자막 입력칸에 붙여넣으세요';
+  setTimeout(() => btn.textContent = orig, 2600);
+};
 
 loadSettings();
 refresh();

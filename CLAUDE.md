@@ -2,7 +2,12 @@
 
 교회 예배용 가사/악보 자막 슬라이드를 자동 생성해 PPT·Keynote로 내보내는 도구.
 저장소: https://github.com/Chocotea101/music-church-maker
-현재 버전: v5.10 (단일 HTML 파일: `music-church-maker.html`)
+현재 버전: v5.11 (단일 HTML 파일: `music-church-maker.html`)
+
+## v5.11 변경 (2026-07-06)
+- **교회 자막기(GenCG) 연동**: `.gcg`는 (주)컴픽스 GenCG(방송/교회용 문자발생기)의 비공개 바이너리 포맷(헤더+설치폰트 카탈로그 통째+픽셀 버퍼, CP949 한글, 압축X). 사양·SDK 없고 검증 불가라 직접 생성은 비현실적 → **붙여넣기용 텍스트 + 크로마키 초록 프리셋**으로 우회.
+- `buildGencgText()`: 가사를 슬라이드별(빈 줄 구분, 별표 제거) 텍스트로 → `#gencgTextBtn`이 클립보드 복사(GenCG 자막칸 붙여넣기용). `lyricGroups()`를 buildLyricSlides에서 분리해 재사용.
+- 단색 배경에 **크로마키 초록(00FF00)** 스와치 추가(자막기·크로마키용).
 
 ## v5.10 변경 (2026-07-06)
 - **악보 음이름 도레미 입력**: `toPitch()`가 도레미파솔라시(+#/♭, 옥타브) → 영어 표기(C4 등) 정규화. 영어도 그대로 됨. `parseScoreText`는 `=` 기준으로 음절/음이름/길이 분리(기존 정규식 대체).
