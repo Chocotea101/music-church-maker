@@ -2,7 +2,11 @@
 
 교회 예배용 가사/악보 자막 슬라이드를 자동 생성해 PPT·Keynote로 내보내는 도구.
 저장소: https://github.com/Chocotea101/music-church-maker
-현재 버전: v5.6 (단일 HTML 파일: `music-church-maker.html`)
+현재 버전: v5.7 (단일 HTML 파일: `music-church-maker.html`)
+
+## v5.7 변경 (2026-07-06)
+- 업데이트 다운로드 파일명 한글 → 영문(`music-church-maker-vX.html`), macOS NFD 문제 재발 방지
+- 폰트 목록 드롭다운을 화살표로 고를 때 슬라이드가 같이 넘어가던 것 차단(keydown 가드에 SELECT 추가)
 
 ## 지금까지 만든 것 (v5.6 기준)
 
