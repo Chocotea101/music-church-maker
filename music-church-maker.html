@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>가사 슬라이드 메이커</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pptxgenjs/3.12.0/pptxgen.bundle.js"></script>
+<script id="mcmEmbedded" type="application/json"></script>
+<!-- ↑ '설정 담은 파일로 저장'을 누르면 여기에 설정 JSON이 채워져요. 이 파일을 열면 자동 복원됩니다. -->
 <style>
   :root{
     --bg:#101014; --panel:#1a1a21; --panel2:#22222b;
@@ -18,6 +20,12 @@
     min-height:100vh;
   }
   .wrap{max-width:960px; margin:0 auto; padding:20px 16px 60px;}
+  .layout{display:grid; grid-template-columns:1fr; gap:16px;}
+  @media (min-width:900px){
+    .wrap{max-width:1200px;}
+    .layout{grid-template-columns:minmax(0,1.08fr) minmax(340px,0.92fr); gap:22px; align-items:start;}
+    .col-preview{position:sticky; top:14px; align-self:start;}
+  }
   header{display:flex; align-items:baseline; gap:10px; margin-bottom:14px;}
   header h1{font-size:20px; font-weight:800; letter-spacing:-.02em;}
   header h1 .dot{color:var(--amber);}
@@ -151,6 +159,11 @@
   .export:disabled{background:#3a3a45; color:#77747f; cursor:default; border:none;}
   .export small{display:block; font-weight:500; font-size:11px; opacity:.75; margin-top:3px;}
 
+  .savefile{width:100%; margin-top:10px; padding:11px; border-radius:9px; cursor:pointer;
+    font-family:inherit; font-size:13px; font-weight:700;
+    background:var(--panel2); color:var(--ink); border:1px solid var(--line);}
+  .savefile:hover{border-color:var(--amber); color:var(--amber);}
+
   details.theory{margin-top:16px; border:1px solid var(--line); border-radius:12px; background:var(--panel);}
   details.theory summary{padding:14px 16px; font-size:13px; font-weight:700; color:var(--sub); cursor:pointer; list-style:none;}
   details.theory summary::before{content:"▸ "; color:var(--amber);}
@@ -163,7 +176,7 @@
 <div class="wrap">
   <header>
     <h1>가사 슬라이드 메이커<span class="dot">.</span></h1>
-    <p id="verBadge">v5.7</p>
+    <p id="verBadge">v5.8</p>
   </header>
   <div id="updateBanner" style="display:none; margin-bottom:12px; padding:12px 14px; border-radius:10px; background:rgba(245,195,77,.1); border:1px solid rgba(245,195,77,.4); font-size:13px; line-height:1.6">
     <b style="color:var(--amber)">새 버전이 나왔어요!</b> <span id="updateMsg"></span>
@@ -179,6 +192,8 @@
     <div class="tab" id="tabScore">악보 자막 (음표+가사)</div>
   </div>
 
+  <div class="layout">
+  <div class="col col-preview">
   <!-- 미리보기 -->
   <div class="stage" id="stage">
     <div class="overlay" id="overlay"></div>
@@ -195,6 +210,16 @@
     <button id="nextBtn">›</button>
   </div>
 
+  <div class="exports">
+    <button class="export ppt" id="exportPpt" disabled>PowerPoint용 내보내기<small>.pptx</small></button>
+    <button class="export key" id="exportKey" disabled>Keynote용 내보내기<small>.pptx를 Keynote로 열기</small></button>
+  </div>
+  <div class="hint">Keynote는 .key 파일을 직접 만들 수 없어서, Keynote에 최적화한 .pptx를 내보내요(Keynote에서 열면 그대로 변환). GIF 배경은 <b>슬라이드쇼 재생 중</b>에 움직여요.</div>
+    <button class="savefile" id="saveFileBtn">💾 이 설정을 담은 파일로 저장</button>
+    <div class="hint">지금 설정·가사·배경을 파일 안에 넣어 저장해요. 이 파일을 보내면 받은 사람도 같은 설정으로 열려요 (인터넷 없이도).</div>
+  </div><!-- /col-preview -->
+
+  <div class="col col-controls">
   <!-- ── 가사 모드 ── -->
   <div id="lyricsMode">
     <div class="panel">
@@ -352,12 +377,8 @@
       </div>
     </div>
   </div>
-
-  <div class="exports">
-    <button class="export ppt" id="exportPpt" disabled>PowerPoint용 내보내기<small>.pptx</small></button>
-    <button class="export key" id="exportKey" disabled>Keynote용 내보내기<small>.pptx를 Keynote로 열기</small></button>
-  </div>
-  <div class="hint">Keynote는 .key 파일을 직접 만들 수 없어서, Keynote에 최적화한 .pptx를 내보내요(Keynote에서 열면 그대로 변환). GIF 배경은 <b>슬라이드쇼 재생 중</b>에 움직여요.</div>
+  </div><!-- /col-controls -->
+  </div><!-- /.layout -->
 
   <details class="theory">
     <summary>가독성 배치 이론 — 이 도구가 크기를 정하는 방법</summary>
@@ -376,7 +397,7 @@
 
 <script>
 // ══════════ 버전 & 업데이트 확인 ══════════
-const APP_VERSION = '5.7';
+const APP_VERSION = '5.8';
 // 아래 주소의 version.json을 실행할 때마다 확인해서 새 버전 공지를 띄워요.
 // version.json 형식:
 // {"version":"5.3","file":"새 html의 raw 주소","link":"배포 페이지 주소","notes":"바뀐 점 한 줄"}
@@ -878,9 +899,8 @@ function selectChip(groupId, value){
     x.classList.toggle('on', x.dataset.v === value));
 }
 let settingsReady = false;
-function saveSettings(){
-  if (!settingsReady) return;
-  storeSet(JSON.stringify({
+function collectSettings(heavy){
+  const o = {
     splitMode, sizeMode, fontStyle, customFont, bg, fg, themeName, dim, scoreRows,
     fsMode, fsManual,
     lyrics: document.getElementById('lyricsInput').value,
@@ -888,10 +908,20 @@ function saveSettings(){
     knownLyrics: document.getElementById('knownLyrics').value,
     title: document.getElementById('titleInput').value,
     subtitle: document.getElementById('subtitleInput').value
-  }));
+  };
+  // heavy=true(파일에 담을 때)면 업로드/생성한 배경 이미지까지 포함해서 통째로 이동
+  if (heavy && bgImage){ o.bgImage = bgImage; o.bgIsGif = bgIsGif; o.animName = animName; }
+  return o;
+}
+function saveSettings(){
+  if (!settingsReady) return;
+  storeSet(JSON.stringify(collectSettings(false)));  // localStorage엔 용량 제한이 있어 이미지 제외
 }
 function loadSettings(){
-  const raw = storeGet();
+  // 파일에 담긴 설정(있으면)이 우선, 없으면 브라우저 저장소
+  const embEl = document.getElementById('mcmEmbedded');
+  const embRaw = embEl && embEl.textContent.trim();
+  const raw = embRaw || storeGet();
   if (raw){
     try {
       const s = JSON.parse(raw);
@@ -922,6 +952,17 @@ function loadSettings(){
       if (s.themeName && s.themeName !== 'none'){
         themeName = s.themeName; themeBg = genThemeBg(themeName);
         selectChip('themeChips', themeName);
+      }
+      if (s.bgImage){   // 파일에 담긴 업로드/생성 배경 복원 (테마보다 우선)
+        bgImage = s.bgImage; bgIsGif = !!s.bgIsGif; animName = s.animName || 'none';
+        themeBg = null; themeName = 'none';
+        selectChip('themeChips', 'none');
+        document.querySelectorAll('#bgSwatches .sw').forEach(x => x.classList.remove('on'));
+        document.getElementById('imgBtn').classList.add('on');
+        document.getElementById('imgThumb').style.display = 'flex';
+        document.getElementById('imgPreview').src = bgImage;
+        document.getElementById('gifTag').textContent = bgIsGif ? 'GIF — 슬라이드쇼에서 움직여요' : '';
+        if (animName !== 'none') selectChip('animChips', animName);
       }
       if (s.lyrics) document.getElementById('lyricsInput').value = s.lyrics;
       if (s.scoreText) document.getElementById('scoreText').value = s.scoreText;
@@ -1441,6 +1482,40 @@ async function exportDeck(target){
 }
 document.getElementById('exportPpt').onclick = () => exportDeck('ppt');
 document.getElementById('exportKey').onclick = () => exportDeck('key');
+
+// ══════════ 설정 담은 파일로 저장 (파일 자체에 설정 심기) ══════════
+function saveFileWithSettings(){
+  const btn = document.getElementById('saveFileBtn');
+  const orig = btn.textContent;
+  try {
+    const clone = document.documentElement.cloneNode(true);
+    const emb = clone.querySelector('#mcmEmbedded');
+    // 스크립트 태그 조기 종료 방지로 < 를 이스케이프 (JSON.parse가 도로 읽어줌)
+    if (emb) emb.textContent = JSON.stringify(collectSettings(true)).replace(/</g, '\\u003c');
+    // 미리보기 등 임시 DOM은 비워서 파일이 불필요하게 커지지 않게
+    const st = clone.querySelector('#stage');
+    if (st){ st.style.backgroundImage = ''; st.style.backgroundColor = ''; }
+    const ly = clone.querySelector('#lyric'); if (ly) ly.textContent = '';
+    const si = clone.querySelector('#scoreImg'); if (si){ si.removeAttribute('src'); si.style.display = 'none'; }
+    const ov = clone.querySelector('#overlay'); if (ov) ov.style.opacity = '';
+    ['#imgPreview','#sheetPreview'].forEach(sel => { const e = clone.querySelector(sel); if (e) e.removeAttribute('src'); });
+    const it = clone.querySelector('#imgThumb'); if (it) it.style.display = '';
+    const fsel = clone.querySelector('#fontSelect'); if (fsel){ fsel.innerHTML = ''; fsel.style.display = 'none'; }
+    const html = '<!DOCTYPE html>\n' + clone.outerHTML;
+    const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const t = (document.getElementById('titleInput').value.trim() || '내설정').replace(/[\\/:*?"<>|]/g, '');
+    a.href = url; a.download = 'music-church-maker-' + t + '.html';
+    document.body.appendChild(a); a.click(); a.remove();
+    URL.revokeObjectURL(url);
+    btn.textContent = '저장 완료! 이 파일을 보내면 설정 그대로 열려요';
+    setTimeout(() => btn.textContent = orig, 3000);
+  } catch (e){
+    alert('파일 저장 실패: ' + e.message);
+  }
+}
+document.getElementById('saveFileBtn').onclick = saveFileWithSettings;
 
 loadSettings();
 refresh();

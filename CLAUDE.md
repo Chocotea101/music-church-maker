@@ -2,7 +2,12 @@
 
 교회 예배용 가사/악보 자막 슬라이드를 자동 생성해 PPT·Keynote로 내보내는 도구.
 저장소: https://github.com/Chocotea101/music-church-maker
-현재 버전: v5.7 (단일 HTML 파일: `music-church-maker.html`)
+현재 버전: v5.8 (단일 HTML 파일: `music-church-maker.html`)
+
+## v5.8 변경 (2026-07-06)
+- **컴퓨터 화면 좌우 2단 레이아웃**: 넓은 화면(≥900px)에서 왼쪽=미리보기+내보내기(sticky 고정), 오른쪽=설정 스크롤. 휴대폰은 세로 1단으로 자동 접힘. (`.layout`/`.col-preview` CSS + body를 `col-preview`/`col-controls`로 감쌈)
+- **설정 담은 파일로 저장**: `<script id="mcmEmbedded" type="application/json">`에 설정 JSON을 심어 자기 자신을 통째로 내려받음(`saveFileWithSettings`). 그 파일을 열면 `loadSettings`가 embedded를 localStorage보다 우선 읽어 복원 → 파일만 보내면 설정·가사·배경(업로드 이미지 포함)까지 그대로 이동. `collectSettings(heavy)`: heavy=true면 bgImage까지 포함.
+- ⚠️ 주의: 인라인 `<script>` 안(주석 포함)에 `</` + `script>` 문자열을 절대 쓰지 말 것 — HTML 파서가 거기서 스크립트를 끊어 뒤 코드가 전부 죽음. 임베드 JSON은 `<` 문자를 유니코드 이스케이프(백슬래시+u003c)로 치환해 저장(JSON.parse가 도로 읽음).
 
 ## v5.7 변경 (2026-07-06)
 - 업데이트 다운로드 파일명 한글 → 영문(`music-church-maker-vX.html`), macOS NFD 문제 재발 방지
