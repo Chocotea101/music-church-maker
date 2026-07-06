@@ -176,14 +176,17 @@
 <div class="wrap">
   <header>
     <h1>가사 슬라이드 메이커<span class="dot">.</span></h1>
-    <p id="verBadge">v5.8</p>
+    <p id="verBadge">v5.9</p>
   </header>
-  <div id="updateBanner" style="display:none; margin-bottom:12px; padding:12px 14px; border-radius:10px; background:rgba(245,195,77,.1); border:1px solid rgba(245,195,77,.4); font-size:13px; line-height:1.6">
-    <b style="color:var(--amber)">새 버전이 나왔어요!</b> <span id="updateMsg"></span>
-    <span id="updateClose" style="float:right; cursor:pointer; color:var(--sub)">✕</span>
-    <div style="margin-top:8px; display:flex; gap:8px; flex-wrap:wrap">
-      <button id="updateDlBtn" style="display:none; padding:9px 16px; border:none; border-radius:8px; background:var(--amber); color:#191203; font-weight:800; font-size:13px; cursor:pointer; font-family:inherit">새 버전 다운로드</button>
-      <a id="updateLink" href="#" target="_blank" style="display:none; padding:9px 16px; border-radius:8px; border:1px solid rgba(245,195,77,.4); color:var(--amber); font-weight:700; font-size:13px; text-decoration:none">배포 페이지 열기</a>
+  <!-- 새 버전이 있으면 전체화면으로 막고 업데이트를 요구 (오프라인이면 뜨지 않음) -->
+  <div id="updateGate" style="display:none; position:fixed; inset:0; z-index:9999; background:rgba(8,8,12,.93); align-items:center; justify-content:center; padding:22px;">
+    <div style="max-width:440px; width:100%; background:var(--panel); border:1px solid var(--amber); border-radius:16px; padding:26px 24px; text-align:center; box-shadow:0 20px 60px rgba(0,0,0,.6)">
+      <div style="font-size:38px; margin-bottom:6px">✨</div>
+      <h2 style="font-size:19px; font-weight:800; color:var(--amber); margin-bottom:8px">새 버전이 나왔어요</h2>
+      <p id="gateMsg" style="font-size:14px; color:var(--sub); line-height:1.6; margin-bottom:18px; white-space:pre-line"></p>
+      <button id="gateDlBtn" style="display:none; width:100%; padding:13px; border:none; border-radius:10px; background:var(--amber); color:#191203; font-weight:800; font-size:15px; cursor:pointer; font-family:inherit">새 버전 받기</button>
+      <a id="gateLink" href="#" target="_blank" style="display:none; margin-top:10px; padding:11px; border-radius:10px; border:1px solid rgba(245,195,77,.4); color:var(--amber); font-weight:700; font-size:14px; text-decoration:none">배포 페이지 열기</a>
+      <div style="margin-top:16px"><a href="#" id="gateSkip" style="font-size:12px; color:var(--sub); opacity:.55; text-decoration:underline">그래도 지금은 이 버전으로 계속 쓰기</a></div>
     </div>
   </div>
 
@@ -225,7 +228,7 @@
     <div class="panel">
       <h2>가사 입력</h2>
       <textarea id="lyricsInput" placeholder="위대하신 주 온 땅 다스리네&#10;모든 이 기뻐하며 *주를 찬양해*&#10;&#10;위대하신 주 노래하리라&#10;위대하신 주"></textarea>
-      <div class="hint">빈 줄 = 슬라이드 나누기 (1줄/2줄/4줄 모드에선 무시하고 줄 수대로 잘라요)<br>
+      <div class="hint">빈 줄(엔터 두 번) = 거기서 슬라이드 나누기. 2줄·4줄 모드에서도 빈 줄을 넣으면 그 슬라이드만 더 적은 줄(예: 1줄)로 나와요.<br>
       <span class="hl">*별표*</span>로 감싼 단어는 금색으로 강조돼요 — 예: 모든 이 기뻐하며 *주를 찬양해*</div>
     </div>
 
@@ -334,14 +337,17 @@
         <label>글꼴 분위기</label>
         <div class="chips" id="fontChips">
           <div class="chip on" data-v="gothic">고딕 (또렷)</div>
-          <div class="chip" data-v="serif">명조 (우아)</div>
-          <div class="chip" data-v="gungsuh">궁서 (붓글씨)</div>
+          <div class="chip" data-v="serif" style="font-family:'AppleMyungjo','Nanum Myeongjo','Batang','바탕',serif">명조 (우아)</div>
+          <div class="chip" data-v="gungsuh" style="font-family:'Gungsuh','궁서','GungSeo',serif">궁서 (붓글씨)</div>
           <div class="chip" data-v="custom">직접 입력</div>
         </div>
         <input type="text" id="customFontInput" placeholder="폰트 이름 그대로 입력 (예: 나눔손글씨 펜, 배달의민족 주아)" style="display:none; margin-top:8px">
-        <button class="rm" id="fontListBtn" style="display:none; margin-top:8px; width:100%; padding:10px; background:var(--bg); border:1px dashed var(--line); color:var(--sub); border-radius:8px; font-size:13px; cursor:pointer; font-family:inherit">이 기기에 설치된 폰트 목록 불러오기</button>
-        <select id="fontSelect" style="display:none; margin-top:8px; width:100%; background:var(--bg); color:var(--ink); border:1px solid var(--line); border-radius:8px; padding:10px; font-size:14px; font-family:inherit"></select>
+        <input type="text" id="fontFilter" placeholder="폰트 이름 검색…" style="display:none; margin-top:8px; width:100%; background:var(--bg); color:var(--ink); border:1px solid var(--line); border-radius:8px; padding:9px; font-size:13px; font-family:inherit">
+        <select id="fontSelect" size="6" style="display:none; margin-top:8px; width:100%; background:var(--bg); color:var(--ink); border:1px solid var(--line); border-radius:8px; padding:6px; font-size:15px; font-family:inherit"></select>
+        <button class="rm" id="fontListBtn" style="display:none; margin-top:8px; width:100%; padding:10px; background:var(--bg); border:1px dashed var(--line); color:var(--sub); border-radius:8px; font-size:13px; cursor:pointer; font-family:inherit">설치된 폰트 더 많이 불러오기 (크롬, 권한 필요)</button>
         <div class="hint" id="fontHint" style="display:none; margin-top:6px">발표하는 컴퓨터에 설치된 폰트여야 해요. 미리보기도 이 기기에 그 폰트가 있어야 제대로 보여요.</div>
+        <div id="fontPreview" style="margin-top:8px; padding:14px 12px; border:1px solid var(--line); border-radius:8px; background:var(--bg); text-align:center; font-size:24px; line-height:1.35; color:var(--ink)">위대하신 주 <span style="color:var(--amber)">은혜임을</span></div>
+        <div class="hint" style="margin-top:4px; opacity:.8">↑ 고른 글꼴로 미리보기 (이 기기에 그 글꼴이 있어야 제대로 보여요)</div>
       </div>
       <div class="field">
         <label>단색 배경 / 사진·GIF</label>
@@ -397,7 +403,7 @@
 
 <script>
 // ══════════ 버전 & 업데이트 확인 ══════════
-const APP_VERSION = '5.8';
+const APP_VERSION = '5.9';
 // 아래 주소의 version.json을 실행할 때마다 확인해서 새 버전 공지를 띄워요.
 // version.json 형식:
 // {"version":"5.3","file":"새 html의 raw 주소","link":"배포 페이지 주소","notes":"바뀐 점 한 줄"}
@@ -413,46 +419,54 @@ function newerThan(remote, local){
   }
   return false;
 }
+async function downloadNewVersion(info, dl){
+  const orig = dl.textContent;
+  dl.disabled = true; dl.textContent = '받는 중…';
+  try {
+    const r = await fetch(info.file, { cache: 'no-store' });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const blob = await r.blob();
+    const url = URL.createObjectURL(blob);
+    const tag = document.createElement('a');
+    tag.href = url;
+    tag.download = 'music-church-maker-v' + info.version + '.html';
+    document.body.appendChild(tag); tag.click(); tag.remove();
+    URL.revokeObjectURL(url);
+    dl.textContent = '완료! 받은 새 파일로 열어주세요 (설정·작업 자동 유지)';
+  } catch (e){
+    dl.disabled = false; dl.textContent = orig;
+    const a = document.getElementById('gateLink'); if (a) a.style.display = 'block';
+    alert('다운로드 실패 — 아래 "배포 페이지 열기"에서 받아주세요.');
+  }
+}
 (async function checkUpdate(){
   if (!UPDATE_CHECK_URL) return;
   try {
     const res = await fetch(UPDATE_CHECK_URL, { cache: 'no-store' });
     const info = await res.json();
+    // 새 버전이 확인되면(온라인일 때만) 전체화면으로 막고 최신 버전으로만 쓰도록 유도
     if (info.version && newerThan(info.version, APP_VERSION)){
-      document.getElementById('updateMsg').textContent =
-        'v' + info.version + (info.notes ? ' — ' + info.notes : '');
+      document.getElementById('gateMsg').textContent =
+        'v' + info.version + (info.notes ? ' — ' + info.notes : '') +
+        '\n예배 화면 통일을 위해 항상 최신 버전으로 열어주세요.';
       if (info.link){
-        const a = document.getElementById('updateLink');
-        a.href = info.link; a.style.display = 'inline-block';
+        const a = document.getElementById('gateLink');
+        a.href = info.link; a.style.display = 'block';
       }
       if (info.file){
-        const dl = document.getElementById('updateDlBtn');
-        dl.style.display = 'inline-block';
-        dl.onclick = async () => {
-          dl.disabled = true; dl.textContent = '받는 중…';
-          try {
-            const r = await fetch(info.file, { cache: 'no-store' });
-            if (!r.ok) throw new Error('HTTP ' + r.status);
-            const blob = await r.blob();
-            const url = URL.createObjectURL(blob);
-            const tag = document.createElement('a');
-            tag.href = url;
-            tag.download = 'music-church-maker-v' + info.version + '.html';
-            document.body.appendChild(tag); tag.click(); tag.remove();
-            URL.revokeObjectURL(url);
-            dl.textContent = '완료! 새 파일로 기존 파일을 바꿔 열어주세요 (설정·작업 자동 유지)';
-          } catch (e){
-            dl.textContent = '실패 — 배포 페이지에서 받아주세요';
-            document.getElementById('updateLink').style.display = 'inline-block';
-          }
-        };
+        const dl = document.getElementById('gateDlBtn');
+        dl.style.display = 'block';
+        dl.onclick = () => downloadNewVersion(info, dl);
       }
-      document.getElementById('updateBanner').style.display = 'block';
+      document.getElementById('updateGate').style.display = 'flex';
     }
-  } catch (e){ /* 오프라인이거나 차단된 환경이면 조용히 넘어감 */ }
+  } catch (e){ /* 오프라인이거나 차단된 환경이면 조용히 넘어감 — 앱은 정상 사용 */ }
 })();
-document.getElementById('updateClose').onclick = () =>
-  document.getElementById('updateBanner').style.display = 'none';
+// 안전장치: 오프라인 급할 때 대비한 최소 탈출구 (원치 않으면 이 줄 제거)
+document.getElementById('gateSkip').onclick = (e) => {
+  e.preventDefault();
+  document.getElementById('updateGate').style.display = 'none';
+};
 
 // ══════════ 공통 상수 ══════════
 const SLIDE_W = 13.333, SLIDE_H = 7.5;
@@ -484,6 +498,12 @@ function previewFontFamily(){
 }
 function previewLetterSpacing(){
   return (fontStyle === 'serif' || fontStyle === 'gungsuh') ? '.05em' : '0';
+}
+function updateFontPreview(){
+  const el = document.getElementById('fontPreview');
+  if (!el) return;
+  el.style.fontFamily = previewFontFamily();
+  el.style.letterSpacing = previewLetterSpacing();
 }
 let sheetData = null, sheetType = null;
 let scoreRows = 1;
@@ -719,9 +739,16 @@ function buildLyricSlides(){
     }
     if (g.length) groups.push(g);
   } else {
+    // N줄 모드: N줄마다 자르되, 빈 줄(엔터 두 번)을 만나면 거기서 미리 끊음
+    // → 특정 슬라이드만 1줄 등 더 적게 넣을 수 있음
     const n = parseInt(splitMode, 10);
-    const flat = allLines.filter(l => l !== '');
-    for (let i = 0; i < flat.length; i += n) groups.push(flat.slice(i, i + n));
+    let g = [];
+    for (const ln of allLines){
+      if (ln === ''){ if (g.length){ groups.push(g); g = []; } continue; }
+      g.push(ln);
+      if (g.length === n){ groups.push(g); g = []; }
+    }
+    if (g.length) groups.push(g);
   }
   slides = groups.map(lines => {
     const auto = fitFont(lines);
@@ -870,18 +897,104 @@ function drawPhrase(phrase, keyName, timeSig, ink){
   return cv;
 }
 
+// ══════════ VexFlow 전문 오선보 렌더링 (실패 시 위 drawPhrase로 폴백) ══════════
+let vexReady = false;
+async function ensureVexLib(){
+  if (vexReady) return true;
+  const urls = [
+    'vexflow.js',   // 같은 폴더에 있으면(오프라인) 먼저 사용
+    'https://cdn.jsdelivr.net/npm/vexflow@4.2.2/build/cjs/vexflow.js',
+    'https://unpkg.com/vexflow@4.2.2/build/cjs/vexflow.js'
+  ];
+  for (const u of urls){
+    try { await loadScript(u); if (window.VexFlow || window.Vex){ vexReady = true; return true; } } catch (e){}
+  }
+  return false;
+}
+function vexFlow(){ const R = window.VexFlow || window.Vex; return R && (R.Flow || R); }
+function pitchToVexKey(p){
+  const m = (p || '').match(/^([A-G])([#b]?)(\d)$/i);
+  return m ? (m[1].toLowerCase() + (m[2] || '') + '/' + m[3]) : null;
+}
+function normalizeVexKey(k){
+  const m = (k || 'C').trim().match(/^([A-Ga-g])\s*([#b]?)\s*(m|min|maj)?/i);
+  if (!m) return 'C';
+  let key = m[1].toUpperCase() + (m[2] ? (m[2] === '#' ? '#' : 'b') : '');
+  if (m[3] && /^m(in)?$/i.test(m[3])) key += 'm';
+  return key;
+}
+function drawPhraseVex(phrase, keyName, timeSig, ink){
+  const VF = vexFlow();
+  const W = 1920, H = 560, SC = 2.7;
+  const canvas = document.createElement('canvas');
+  canvas.width = W; canvas.height = H;
+  const renderer = new VF.Renderer(canvas, VF.Renderer.Backends.CANVAS);
+  // resize()는 devicePixelRatio를 곱해 캔버스를 키우므로 쓰지 않고, 위에서 정한 크기 + 직접 스케일 사용
+  const ctx = renderer.getContext();
+  ctx.scale(SC, SC);
+  ctx.setFillStyle(ink); ctx.setStrokeStyle(ink);
+  const LW = W / SC;
+  const stave = new VF.Stave(6, 40, LW - 14);
+  stave.addClef('treble');
+  let vexKey = 'C';
+  try { vexKey = normalizeVexKey(keyName); stave.addKeySignature(vexKey); } catch (e){ vexKey = 'C'; }
+  try { if (timeSig) stave.addTimeSignature(timeSig); } catch (e){}
+  stave.setContext(ctx).draw();
+
+  let prevKey = 'b/4';
+  const notes = phrase.map(n => {
+    let key = pitchToVexKey(n.p);
+    if (!key) key = prevKey; else prevKey = key;
+    const sn = new VF.StaveNote({ clef: 'treble', keys: [key], duration: (n.d || 'q') });
+    sn.setStyle({ fillStyle: ink, strokeStyle: ink });
+    return sn;
+  });
+  const parts = (timeSig || '4/4').split('/').map(x => parseInt(x, 10));
+  const voice = new VF.Voice({ num_beats: parts[0] || 4, beat_value: parts[1] || 4 }).setStrict(false);
+  voice.addTickables(notes);
+  try { VF.Accidental.applyAccidentals([voice], vexKey); } catch (e){}
+  const beams = VF.Beam.generateBeams(notes);
+  new VF.Formatter().joinVoices([voice]).formatToStave([voice], stave);
+  voice.draw(ctx, stave);
+  beams.forEach(b => { try { b.setStyle({ fillStyle: ink, strokeStyle: ink }); } catch (e){} b.setContext(ctx).draw(); });
+
+  // 가사: 각 음표 x 위치에 맞춰 오선 아래 한 줄로 직접 그림
+  const c2d = canvas.getContext('2d');   // 위에서 SC 배율 이미 적용됨
+  c2d.fillStyle = ink;
+  c2d.textAlign = 'center';
+  c2d.textBaseline = 'alphabetic';
+  c2d.font = '600 15px "Apple SD Gothic Neo","Malgun Gothic",sans-serif';
+  const ly = stave.getYForLine(4) + 46;   // 오선 맨 아래 줄 바로 아래에 가사 한 줄
+  notes.forEach((sn, i) => {
+    const s = phrase[i].s;
+    if (!s) return;
+    let x = 0;
+    try { x = sn.getAbsoluteX() + (sn.getWidth ? sn.getWidth() / 2 : 6); } catch (e){}
+    if (x) c2d.fillText(s, x, ly);
+  });
+  return canvas;
+}
+function renderPhraseCanvas(ph, key, time, ink){
+  if (vexReady && vexFlow()){
+    try { return drawPhraseVex(ph, key, time, ink); }
+    catch (e){ /* VexFlow 실패 → 기존 렌더러로 폴백 */ }
+  }
+  return drawPhrase(ph, key, time, ink);
+}
+
 function buildScoreSlides(){
   const phrases = parseScoreText();
   const ink = effectiveBg() ? '#FFFFFF' : '#' + fg;
   const groups = [];
   for (let i = 0; i < phrases.length; i += scoreRows) groups.push(phrases.slice(i, i + scoreRows));
   scoreSlides = groups.map(group => {
-    const staves = group.map(ph => drawPhrase(ph, scoreMeta.key, scoreMeta.time, ink));
-    const W = 1920, rowH = 560, H = rowH * staves.length;
+    const staves = group.map(ph => renderPhraseCanvas(ph, scoreMeta.key, scoreMeta.time, ink));
+    const W = 1920, H = staves.reduce((s, c) => s + c.height, 0);
     const cv = document.createElement('canvas');
     cv.width = W; cv.height = H;
     const ctx = cv.getContext('2d');
-    staves.forEach((s, i) => ctx.drawImage(s, 0, i * rowH));
+    let y = 0;
+    staves.forEach(s => { ctx.drawImage(s, 0, y); y += s.height; });
     return { url: cv.toDataURL('image/png'), w: W, h: H };
   });
   if (scoreMeta.title && !document.getElementById('titleInput').value)
@@ -944,6 +1057,7 @@ function loadSettings(){
         document.getElementById('customFontInput').style.display = isCustom ? 'block' : 'none';
         document.getElementById('fontListBtn').style.display = isCustom ? 'block' : 'none';
         document.getElementById('fontHint').style.display = isCustom ? 'block' : 'none';
+        if (isCustom){ const nm = detectCommonFonts(); if (nm.length) renderFontOptions(nm); }
       }
       if (s.bg){ bg = s.bg; fg = s.fg || 'FFFFFF';
         document.querySelectorAll('#bgSwatches .sw').forEach(x =>
@@ -1065,6 +1179,7 @@ function render(){
 function refresh(){
   if (mode === 'lyrics') buildLyricSlides(); else buildScoreSlides();
   render();
+  updateFontPreview();
   saveSettings();
 }
 
@@ -1076,6 +1191,10 @@ function setMode(m){
   document.getElementById('lyricsMode').style.display = m === 'lyrics' ? '' : 'none';
   document.getElementById('scoreMode').style.display = m === 'score' ? '' : 'none';
   refresh();
+  // 악보 모드로 오면 VexFlow를 불러오고, 준비되면 예쁜 악보로 다시 렌더
+  if (m === 'score' && !vexReady){
+    ensureVexLib().then(ok => { if (ok && mode === 'score') refresh(); });
+  }
 }
 document.getElementById('tabLyrics').onclick = () => setMode('lyrics');
 document.getElementById('tabScore').onclick = () => setMode('score');
@@ -1119,7 +1238,13 @@ chipGroup('fontChips',  v => {
   document.getElementById('customFontInput').style.display = isCustom ? 'block' : 'none';
   document.getElementById('fontListBtn').style.display = isCustom ? 'block' : 'none';
   document.getElementById('fontHint').style.display = isCustom ? 'block' : 'none';
-  if (!isCustom) document.getElementById('fontSelect').style.display = 'none';
+  if (isCustom){
+    const names = detectCommonFonts();   // 팝업 없이 자동으로 설치폰트 목록 표시
+    if (names.length) renderFontOptions(names);
+  } else {
+    document.getElementById('fontSelect').style.display = 'none';
+    document.getElementById('fontFilter').style.display = 'none';
+  }
   refresh();
 });
 document.getElementById('customFontInput').addEventListener('input', e => {
@@ -1129,9 +1254,31 @@ document.getElementById('customFontInput').addEventListener('input', e => {
 
 // 설치된 폰트 목록: 공식 API(크롬) 우선, 안 되면 흔한 한글 폰트 설치여부 감지
 const COMMON_KR_FONTS = ['맑은 고딕','바탕','돋움','굴림','궁서','새굴림','휴먼둥근헤드라인','HY견고딕','HY견명조','HY헤드라인M','함초롬바탕','함초롬돋움','나눔고딕','나눔명조','나눔스퀘어','나눔스퀘어라운드','나눔바른고딕','나눔손글씨 펜','나눔손글씨 붓','Pretendard','에스코어 드림','G마켓 산스','G마켓 산스 TTF Bold','배달의민족 주아','배달의민족 도현','배달의민족 한나체 Air','여기어때 잘난체','카페24 써라운드','카페24 아네모네','검은고딕','조선일보명조','KoPubWorld돋움체','KoPubWorld바탕체','Apple SD Gothic Neo','AppleMyungjo','Noto Sans KR','Noto Serif KR','SUIT','IBM Plex Sans KR','고운돋움','고운바탕','마루 부리','학교안심 우주','어그로체'];
+let _fontNames = [];
+function detectCommonFonts(){   // 권한 팝업 없이 흔한 한글 폰트 설치여부만 감지
+  return COMMON_KR_FONTS.filter(n => {
+    try { return document.fonts.check('16px "' + n + '"'); } catch (e){ return false; }
+  }).sort((a, b) => a.localeCompare(b, 'ko'));
+}
+function fontOptionHtml(n){
+  return '<option value="' + n.replace(/"/g,'&quot;') + '" style="font-family:\'' + n.replace(/['\\]/g,'') + '\'">' + n.replace(/</g,'&lt;') + '</option>';
+}
+function applyFontFilter(){
+  const sel = document.getElementById('fontSelect');
+  const filt = (document.getElementById('fontFilter').value || '').trim().toLowerCase();
+  const shown = filt ? _fontNames.filter(n => n.toLowerCase().includes(filt)) : _fontNames;
+  sel.innerHTML = shown.length ? shown.map(fontOptionHtml).join('')
+    : '<option value="" disabled>검색 결과 없음</option>';
+}
+function renderFontOptions(names){
+  _fontNames = names.slice();
+  document.getElementById('fontSelect').style.display = 'block';
+  document.getElementById('fontFilter').style.display = names.length > 8 ? 'block' : 'none';
+  applyFontFilter();
+}
+document.getElementById('fontFilter').addEventListener('input', applyFontFilter);
 document.getElementById('fontListBtn').onclick = async () => {
   const btn = document.getElementById('fontListBtn');
-  const sel = document.getElementById('fontSelect');
   btn.textContent = '불러오는 중…';
   let names = [];
   try {
@@ -1140,20 +1287,14 @@ document.getElementById('fontListBtn').onclick = async () => {
       names = [...new Set(fonts.map(f => f.family))];
     }
   } catch (e){ /* 권한 거부/미지원 → 폴백 */ }
-  if (!names.length){
-    names = COMMON_KR_FONTS.filter(n => {
-      try { return document.fonts.check('16px "' + n + '"'); } catch (e){ return false; }
-    });
-  }
+  if (!names.length) names = detectCommonFonts();
   if (!names.length){
     btn.textContent = '목록을 가져올 수 없어요 — 위 칸에 이름을 직접 입력해주세요';
     return;
   }
   names.sort((a, b) => a.localeCompare(b, 'ko'));
-  sel.innerHTML = '<option value="">— 폰트 고르기 (' + names.length + '개 발견) —</option>' +
-    names.map(n => '<option value="' + n.replace(/"/g,'&quot;') + '">' + n.replace(/</g,'&lt;') + '</option>').join('');
-  sel.style.display = 'block';
-  btn.textContent = '이 기기에 설치된 폰트 목록 불러오기';
+  renderFontOptions(names);
+  btn.textContent = '설치된 폰트 다시 불러오기';
 };
 document.getElementById('fontSelect').addEventListener('change', e => {
   if (!e.target.value) return;

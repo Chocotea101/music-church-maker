@@ -5,3 +5,6 @@ dist/
 /src-tauri/target/
 # OS
 .DS_Store
+
+# 로컬 테스트/오프라인용 (배포는 CDN)
+vexflow.js

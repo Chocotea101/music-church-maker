@@ -1,6 +1,6 @@
 {
-  "version": "5.8",
+  "version": "5.9",
   "file": "https://raw.githubusercontent.com/Chocotea101/music-church-maker/main/music-church-maker.html",
   "link": "https://github.com/Chocotea101/music-church-maker",
-  "notes": "컴퓨터 화면 좌우 2단 배치 + 설정 담은 파일로 저장(보내면 설정 그대로)"
+  "notes": "악보를 진짜 악보처럼(VexFlow) · 폰트 미리보기 · 빈 줄로 슬라이드 나누기"
 }

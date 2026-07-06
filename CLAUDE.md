@@ -2,7 +2,14 @@
 
 교회 예배용 가사/악보 자막 슬라이드를 자동 생성해 PPT·Keynote로 내보내는 도구.
 저장소: https://github.com/Chocotea101/music-church-maker
-현재 버전: v5.8 (단일 HTML 파일: `music-church-maker.html`)
+현재 버전: v5.9 (단일 HTML 파일: `music-church-maker.html`)
+
+## v5.9 변경 (2026-07-06)
+- **악보 렌더링 VexFlow 교체**: `drawPhraseVex()`가 전문 악보 라이브러리로 음자리표·조표·박자표·음표·빔·덧줄을 정위치 렌더, 가사는 음표 x에 맞춰 오선 아래 직접 그림. `renderPhraseCanvas()`가 VexFlow 준비되면 사용, 실패 시 기존 `drawPhrase()`로 폴백. 로더 `ensureVexLib()`: 로컬 `vexflow.js`(오프라인·gitignore됨) → jsdelivr → unpkg 순. 악보 모드 진입 시 로드 후 재렌더. **주의**: VexFlow `renderer.resize()`는 devicePixelRatio를 곱해 캔버스를 키우므로 쓰지 말 것(직접 canvas 크기 지정 + `ctx.scale`). 캔버스 560h, `getYForLine(4)+46`에 가사. `buildScoreSlides`는 각 단 실제 높이로 세로 스택.
+- **폰트 미리보기**: 글꼴 칩(명조·궁서)이 각자 글씨체로 표시 + 미리보기 박스(`#fontPreview`)에 고른 글꼴로 샘플. `updateFontPreview()`를 `refresh()`에서 호출.
+- **폰트 고르기 편하게**: '직접 입력' 누르면 `detectCommonFonts()`로 팝업 없이 목록 자동 표시, `#fontFilter` 검색으로 거름, 옵션·리스트가 각 글씨체로 보임(`renderFontOptions`/`applyFontFilter`). '더 많이 불러오기' 버튼은 queryLocalFonts(크롬).
+- **빈 줄로 슬라이드 나누기 확장**: 2·4줄 모드에서도 빈 줄(엔터 두 번)을 만나면 거기서 끊어 특정 슬라이드만 더 적은 줄 가능(`buildLyricSlides` N모드).
+- **새 버전 강제 업데이트**: 온라인에서 새 버전 확인 시 전체화면 `#updateGate`로 막고 최신본 유도. 오프라인이면 안 뜸. 안전장치로 작은 `#gateSkip`(계속 쓰기) 링크 있음 — 완전 차단 원하면 제거.
 
 ## v5.8 변경 (2026-07-06)
 - **컴퓨터 화면 좌우 2단 레이아웃**: 넓은 화면(≥900px)에서 왼쪽=미리보기+내보내기(sticky 고정), 오른쪽=설정 스크롤. 휴대폰은 세로 1단으로 자동 접힘. (`.layout`/`.col-preview` CSS + body를 `col-preview`/`col-controls`로 감쌈)
