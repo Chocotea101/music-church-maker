@@ -1,6 +1,6 @@
 {
-  "version": "5.9",
+  "version": "5.10",
   "file": "https://raw.githubusercontent.com/Chocotea101/music-church-maker/main/music-church-maker.html",
   "link": "https://github.com/Chocotea101/music-church-maker",
-  "notes": "악보를 진짜 악보처럼(VexFlow) · 폰트 미리보기 · 빈 줄로 슬라이드 나누기"
+  "notes": "악보 음이름을 도레미로도 입력 · 실시간 검증·도움말·예시"
 }

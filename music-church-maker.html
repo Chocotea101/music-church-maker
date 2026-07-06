@@ -176,7 +176,7 @@
 <div class="wrap">
   <header>
     <h1>가사 슬라이드 메이커<span class="dot">.</span></h1>
-    <p id="verBadge">v5.9</p>
+    <p id="verBadge">v5.10</p>
   </header>
   <!-- 새 버전이 있으면 전체화면으로 막고 업데이트를 요구 (오프라인이면 뜨지 않음) -->
   <div id="updateGate" style="display:none; position:fixed; inset:0; z-index:9999; background:rgba(8,8,12,.93); align-items:center; justify-content:center; padding:22px;">
@@ -303,9 +303,14 @@
           <div class="chip" data-v="3">3단씩</div>
         </div>
       </div>
-      <textarea id="scoreText" placeholder="[제목] 위대하신 주&#10;[조성] G&#10;[박자] 4/4&#10;위=D4 대=G4 하=A4 신=B4/h 주=A4&#10;온=B4 땅=B4 다=A4 스=G4 리=A4 네=G4/h"></textarea>
-      <div class="hint">
-        한 줄 = 한 단. <b>음절=음이름</b> 형식. C4=가온 도, 반음은 F#4/Bb4, 길이는 /h /8 /16 /w.
+      <textarea id="scoreText" placeholder="[제목] 위대하신 주&#10;[조성] G&#10;[박자] 4/4&#10;위=레4 대=솔4 하=라4 신=시4/h 주=라4&#10;온=시4 땅=시4 다=라4 스=솔4 리=라4 네=솔4/h"></textarea>
+      <div id="scoreStatus" class="hint" style="margin-top:6px; font-weight:700"></div>
+      <button class="rm" id="scoreExampleBtn" style="margin-top:8px; width:100%; padding:10px; background:var(--bg); border:1px dashed var(--line); color:var(--sub); border-radius:8px; font-size:13px; cursor:pointer; font-family:inherit">예시 넣어보기 (도레미로 입력한 샘플)</button>
+      <div class="hint" style="margin-top:8px">
+        한 줄 = 한 단. <b>가사음절=음이름</b> 형식.<br>
+        음이름은 <b>도레미파솔라시</b>로 써도 돼요 — 예: <code>위=도4 대=솔4</code> (영어 C4/G4도 됨).<br>
+        가온 도=도4, 한 옥타브 위=도5. 반음은 <code>솔#4</code>·<code>시b4</code>(또는 F#4/Bb4).<br>
+        길이: 2분음표 <code>/h</code> · 8분음표 <code>/8</code> · 16분 <code>/16</code> · 온음표 <code>/w</code> (4분음표는 생략). 멜리스마는 음절 반복.
       </div>
     </div>
   </div>
@@ -403,7 +408,7 @@
 
 <script>
 // ══════════ 버전 & 업데이트 확인 ══════════
-const APP_VERSION = '5.9';
+const APP_VERSION = '5.10';
 // 아래 주소의 version.json을 실행할 때마다 확인해서 새 버전 공지를 띄워요.
 // version.json 형식:
 // {"version":"5.3","file":"새 html의 raw 주소","link":"배포 페이지 주소","notes":"바뀐 점 한 줄"}
@@ -761,12 +766,26 @@ function buildLyricSlides(){
 }
 
 // ══════════ 악보 모드: 파싱 ══════════
+// 음이름: 영어(C4) + 한글 계이름(도4/솔#4/시b4) 모두 받아 영어 표기로 정규화
+let scoreWarnings = [];
+const SOLFEGE_MAP = { '도':'C','레':'D','미':'E','파':'F','솔':'G','라':'A','시':'B' };
+function normAcc(a){ return (a === '#' || a === '♯') ? '#' : (a === 'b' || a === '♭') ? 'b' : ''; }
+function toPitch(str){
+  const s = (str || '').trim();
+  let m = s.match(/^([A-Ga-g])([#b♯♭]?)(\d)$/);
+  if (m) return m[1].toUpperCase() + normAcc(m[2]) + m[3];
+  m = s.match(/^([도레미파솔라시])([#b♯♭]?)(\d)$/);
+  if (m) return SOLFEGE_MAP[m[1]] + normAcc(m[2]) + m[3];
+  return null;
+}
 function parseScoreText(){
   const raw = document.getElementById('scoreText').value.replace(/\r/g,'');
   const meta = { title:'', key:'C', time:'4/4' };
   const phrases = [];
-  for (let line of raw.split('\n')){
-    line = line.trim();
+  scoreWarnings = [];
+  const lines = raw.split('\n');
+  for (let li = 0; li < lines.length; li++){
+    const line = lines[li].trim();
     if (!line) continue;
     let m;
     if (m = line.match(/^\[제목\]\s*(.*)$/)){ meta.title = m[1].trim(); continue; }
@@ -774,14 +793,37 @@ function parseScoreText(){
     if (m = line.match(/^\[박자\]\s*(.*)$/)){ meta.time = m[1].trim() || '4/4'; continue; }
     const notes = [];
     for (const tok of line.split(/\s+/)){
-      const t = tok.match(/^(.+?)=([A-Ga-g][#b]?\d)(?:\/(w|h|q|8|16))?$/);
-      if (t) notes.push({ s: t[1], p: t[2].toUpperCase(), d: t[3] || 'q' });
-      else notes.push({ s: tok, p: null, d: 'q' });
+      const eq = tok.indexOf('=');
+      if (eq <= 0){ notes.push({ s: tok, p: null, d: 'q' }); continue; }  // 음정 없는 가사 음절
+      const s = tok.slice(0, eq);
+      let rest = tok.slice(eq + 1);
+      let d = 'q';
+      const dm = rest.match(/\/(w|h|q|8|16)$/);
+      if (dm){ d = dm[1]; rest = rest.slice(0, dm.index); }
+      const p = toPitch(rest);
+      if (!p) scoreWarnings.push((li + 1) + '번째 줄 "' + tok + '"의 음이름을 못 읽었어요');
+      notes.push({ s, p, d });
     }
     if (notes.length) phrases.push(notes);
   }
   scoreMeta = meta;
   return phrases;
+}
+function updateScoreStatus(){
+  const el = document.getElementById('scoreStatus');
+  if (!el) return;
+  const phrases = parseScoreText();
+  const noteCount = phrases.reduce((s, p) => s + p.length, 0);
+  if (scoreWarnings.length){
+    el.style.color = 'var(--amber)';
+    el.textContent = '⚠ ' + scoreWarnings.slice(0, 2).join('  ·  ') +
+      (scoreWarnings.length > 2 ? ' 외 ' + (scoreWarnings.length - 2) + '건' : '');
+  } else if (noteCount){
+    el.style.color = 'var(--sub)';
+    el.textContent = '✓ ' + phrases.length + '단 · ' + noteCount + '음 인식됨';
+  } else {
+    el.textContent = '';
+  }
 }
 
 // ══════════ 오선보 렌더링 ══════════
@@ -1180,6 +1222,7 @@ function refresh(){
   if (mode === 'lyrics') buildLyricSlides(); else buildScoreSlides();
   render();
   updateFontPreview();
+  if (mode === 'score') updateScoreStatus();
   saveSettings();
 }
 
@@ -1201,6 +1244,13 @@ document.getElementById('tabScore').onclick = () => setMode('score');
 
 document.getElementById('lyricsInput').addEventListener('input', refresh);
 document.getElementById('scoreText').addEventListener('input', refresh);
+document.getElementById('scoreExampleBtn').onclick = () => {
+  document.getElementById('scoreText').value =
+    '[제목] 위대하신 주\n[조성] G\n[박자] 4/4\n' +
+    '위=레4 대=솔4 하=라4 신=시4/h 주=라4\n' +
+    '온=시4 땅=시4 다=라4 스=솔4 리=라4 네=솔4/h';
+  refresh();
+};
 document.getElementById('prevBtn').onclick = () => { if (cur > 0){ cur--; render(); } };
 document.getElementById('nextBtn').onclick = () => { if (cur < totalSlides() - 1){ cur++; render(); } };
 document.getElementById('stage').onclick = () => { const t = totalSlides(); if (t){ cur = (cur + 1) % t; render(); } };

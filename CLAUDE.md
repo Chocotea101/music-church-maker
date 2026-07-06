@@ -2,7 +2,11 @@
 
 교회 예배용 가사/악보 자막 슬라이드를 자동 생성해 PPT·Keynote로 내보내는 도구.
 저장소: https://github.com/Chocotea101/music-church-maker
-현재 버전: v5.9 (단일 HTML 파일: `music-church-maker.html`)
+현재 버전: v5.10 (단일 HTML 파일: `music-church-maker.html`)
+
+## v5.10 변경 (2026-07-06)
+- **악보 음이름 도레미 입력**: `toPitch()`가 도레미파솔라시(+#/♭, 옥타브) → 영어 표기(C4 등) 정규화. 영어도 그대로 됨. `parseScoreText`는 `=` 기준으로 음절/음이름/길이 분리(기존 정규식 대체).
+- **실시간 검증·도움말**: `scoreWarnings`에 못 읽은 토큰(줄번호+토큰) 수집, `updateScoreStatus()`가 `#scoreStatus`에 "✓ N단·M음" 또는 "⚠ …" 표시(`refresh` 내 score 모드에서 호출). 도움말에 도레미 표기·길이 안내, `#scoreExampleBtn`으로 도레미 예시 채우기.
 
 ## v5.9 변경 (2026-07-06)
 - **악보 렌더링 VexFlow 교체**: `drawPhraseVex()`가 전문 악보 라이브러리로 음자리표·조표·박자표·음표·빔·덧줄을 정위치 렌더, 가사는 음표 x에 맞춰 오선 아래 직접 그림. `renderPhraseCanvas()`가 VexFlow 준비되면 사용, 실패 시 기존 `drawPhrase()`로 폴백. 로더 `ensureVexLib()`: 로컬 `vexflow.js`(오프라인·gitignore됨) → jsdelivr → unpkg 순. 악보 모드 진입 시 로드 후 재렌더. **주의**: VexFlow `renderer.resize()`는 devicePixelRatio를 곱해 캔버스를 키우므로 쓰지 말 것(직접 canvas 크기 지정 + `ctx.scale`). 캔버스 560h, `getYForLine(4)+46`에 가사. `buildScoreSlides`는 각 단 실제 높이로 세로 스택.
