@@ -10,3 +10,6 @@ dist/
 vexflow.js
 
 _test_*.gcg
+
+# 로컬 역설계 리서치(배포 제외)
+gcg-research/
