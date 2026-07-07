@@ -176,7 +176,7 @@
 <div class="wrap">
   <header>
     <h1>가사 슬라이드 메이커<span class="dot">.</span></h1>
-    <p id="verBadge">v5.11</p>
+    <p id="verBadge">v5.12</p>
   </header>
   <!-- 새 버전이 있으면 전체화면으로 막고 업데이트를 요구 (오프라인이면 뜨지 않음) -->
   <div id="updateGate" style="display:none; position:fixed; inset:0; z-index:9999; background:rgba(8,8,12,.93); align-items:center; justify-content:center; padding:22px;">
@@ -265,6 +265,25 @@
           </div>
         </div>
       </div>
+    </div>
+
+    <div class="panel">
+      <h2>교회 자막기(GenCG) .gcg 만들기</h2>
+      <div class="hint" style="margin-top:0; margin-bottom:10px">
+        GenCG에서 <b>고정 길이 슬롯 템플릿</b>을 한 번 만들어 올려두면, 위 가사를 그 페이지들에 채워 <b>.gcg 파일</b>로 뽑아줘요.
+        <details style="margin-top:6px"><summary style="cursor:pointer; color:var(--amber)">템플릿 만드는 법 (한 번만)</summary>
+        <div style="margin-top:6px; line-height:1.8">
+        1. GenCG에서 <b>페이지 수</b>만큼(곡당 최대 슬라이드 수) 페이지를 만들어요.<br>
+        2. 각 페이지에 <b>줄마다 똑같은 길이</b>로 아무 글자나 꽉 채워요 (예: 한 줄 15자 <code>가나다라마바사아자차카타파하가</code>, 2줄).<br>
+        3. 저장(영문 파일명) → 아래에서 올리세요.<br>
+        ※ 글꼴·위치·배경은 템플릿 그대로. 글자 수만 채워 넣어 구조가 안 깨져요.
+        </div></details>
+      </div>
+      <input type="file" id="gcgTplFile" accept=".gcg" hidden>
+      <button class="savefile" id="gcgTplBtn">📁 GenCG 슬롯 템플릿(.gcg) 올리기</button>
+      <div class="hint" id="gcgTplInfo" style="margin-top:6px">아직 템플릿 없음</div>
+      <button class="savefile" id="gcgMakeBtn" style="display:none; margin-top:8px; border-color:var(--amber); color:var(--amber)">⬇ 이 가사로 GenCG(.gcg) 만들기</button>
+      <div class="warn" id="gcgWarn" style="display:none; margin-top:8px"></div>
     </div>
   </div>
 
@@ -411,7 +430,7 @@
 
 <script>
 // ══════════ 버전 & 업데이트 확인 ══════════
-const APP_VERSION = '5.11';
+const APP_VERSION = '5.12';
 // 아래 주소의 version.json을 실행할 때마다 확인해서 새 버전 공지를 띄워요.
 // version.json 형식:
 // {"version":"5.3","file":"새 html의 raw 주소","link":"배포 페이지 주소","notes":"바뀐 점 한 줄"}
@@ -1735,6 +1754,91 @@ document.getElementById('gencgTextBtn').onclick = async () => {
   btn.textContent = '복사 완료! GenCG 자막 입력칸에 붙여넣으세요';
   setTimeout(() => btn.textContent = orig, 2600);
 };
+
+// ══════════ GenCG(.gcg) 생성: 고정슬롯 템플릿에 가사 글자만 채워넣기 ══════════
+let gcgTpl = null;   // { u8:Uint8Array, pages:[{positions:[],lineLens:[]}] }
+function parseGcgSlots(u8){
+  const glyphs = [];
+  for (let i = 0; i + 7 < u8.length; i++){
+    if (u8[i]===0 && u8[i+1]===0 && u8[i+2]===0 && u8[i+3]===0 && u8[i+4]===1 && u8[i+5]===0 && u8[i+6]===0 && u8[i+7]===0){
+      const pos = i - 2; if (pos < 0) continue;
+      const code = u8[pos] | (u8[pos+1] << 8);
+      if ((code >= 0xAC00 && code <= 0xD7A3) || code === 0x20 || code === 0x0d) glyphs.push({ pos, code });
+    }
+  }
+  if (!glyphs.length) return [];
+  const pages = []; let cur = [glyphs[0]];
+  for (let i = 1; i < glyphs.length; i++){
+    if (glyphs[i].pos - glyphs[i-1].pos > 2000){ pages.push(cur); cur = []; }
+    cur.push(glyphs[i]);
+  }
+  if (cur.length) pages.push(cur);
+  return pages.map(pg => {
+    const lineLens = []; let c = 0;
+    for (const g of pg){ if (g.code === 0x0d){ lineLens.push(c); c = 0; } else c++; }
+    lineLens.push(c);
+    return { positions: pg.map(g => g.pos), lineLens };
+  });
+}
+function gcgCenter(s, n){
+  const a = [...s].slice(0, n); const pad = n - a.length;
+  return ' '.repeat(pad >> 1) + a.join('') + ' '.repeat(pad - (pad >> 1));
+}
+function fillGcg(u8, pages, slides){
+  const out = u8.slice(); const warns = [];
+  pages.forEach((pg, pi) => {
+    const lines = slides[pi] || [];
+    if (lines.length > pg.lineLens.length) warns.push((pi+1) + '페이지: ' + lines.length + '줄인데 슬롯은 ' + pg.lineLens.length + '줄 — 넘친 줄 잘림');
+    let chars = '';
+    pg.lineLens.forEach((len, li) => {
+      const raw = stripMarks(lines[li] || '');
+      if ([...raw].length > len) warns.push((pi+1) + '페이지 ' + (li+1) + '줄: ' + [...raw].length + '자 > 슬롯 ' + len + '자 — 잘림');
+      if (li) chars += '\r';
+      chars += gcgCenter(raw, len);
+    });
+    const cp = [...chars];
+    pg.positions.forEach((pos, k) => { const c = (cp[k] || ' ').codePointAt(0); out[pos] = c & 0xff; out[pos+1] = c >> 8; });
+  });
+  return { out, warns };
+}
+function u8ToB64(u8){ let s = ''; for (let i = 0; i < u8.length; i += 0x8000) s += String.fromCharCode.apply(null, u8.subarray(i, i + 0x8000)); return btoa(s); }
+function b64ToU8(b){ const s = atob(b); const u = new Uint8Array(s.length); for (let i = 0; i < s.length; i++) u[i] = s.charCodeAt(i); return u; }
+function setGcgTpl(u8, remember){
+  const pages = parseGcgSlots(u8);
+  if (!pages.length){ document.getElementById('gcgTplInfo').textContent = '이 파일에서 글자 슬롯을 못 찾았어요 — GenCG에서 만든 .gcg가 맞는지 확인해주세요'; return false; }
+  gcgTpl = { u8, pages };
+  const dims = pages.map(p => p.lineLens.join('+')).join(' , ');
+  document.getElementById('gcgTplInfo').innerHTML = '✓ 템플릿: <b>' + pages.length + '페이지</b> (페이지별 줄길이: ' + dims + ')';
+  document.getElementById('gcgMakeBtn').style.display = 'block';
+  if (remember){ try { localStorage.setItem('mcm_gcg_tpl', u8ToB64(u8)); } catch (e){} }
+  return true;
+}
+document.getElementById('gcgTplBtn').onclick = () => document.getElementById('gcgTplFile').click();
+document.getElementById('gcgTplFile').addEventListener('change', e => {
+  const f = e.target.files[0]; if (!f) return;
+  const r = new FileReader();
+  r.onload = () => setGcgTpl(new Uint8Array(r.result), true);
+  r.readAsArrayBuffer(f); e.target.value = '';
+});
+document.getElementById('gcgMakeBtn').onclick = () => {
+  if (!gcgTpl) return;
+  const slides = lyricGroups();
+  if (!slides.length){ alert('먼저 가사를 입력해주세요.'); return; }
+  const warnBox = document.getElementById('gcgWarn');
+  const extra = slides.length > gcgTpl.pages.length
+    ? ['가사가 ' + slides.length + '슬라이드인데 템플릿은 ' + gcgTpl.pages.length + '페이지 — 앞 ' + gcgTpl.pages.length + '개만 채웠어요. 템플릿 페이지를 늘려주세요.'] : [];
+  const { out, warns } = fillGcg(gcgTpl.u8, gcgTpl.pages, slides);
+  const all = extra.concat(warns);
+  warnBox.style.display = all.length ? 'block' : 'none';
+  warnBox.textContent = all.length ? '⚠ ' + all.slice(0, 4).join('  ·  ') + (all.length > 4 ? ' 외 ' + (all.length-4) + '건' : '') : '';
+  const blob = new Blob([out], { type: 'application/octet-stream' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const t = (document.getElementById('titleInput').value.trim() || '찬양가사').replace(/[\\/:*?"<>|]/g, '');
+  a.href = url; a.download = t + '.gcg';
+  document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+};
+try { const saved = localStorage.getItem('mcm_gcg_tpl'); if (saved) setGcgTpl(b64ToU8(saved), false); } catch (e){}
 
 loadSettings();
 refresh();

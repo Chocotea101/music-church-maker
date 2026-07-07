@@ -1,6 +1,6 @@
 {
-  "version": "5.11",
+  "version": "5.12",
   "file": "https://raw.githubusercontent.com/Chocotea101/music-church-maker/main/music-church-maker.html",
   "link": "https://github.com/Chocotea101/music-church-maker",
-  "notes": "교회 자막기(GenCG)용 가사 텍스트 복사 + 크로마키 초록 배경 프리셋"
+  "notes": "GenCG 슬롯 템플릿에 가사 채워 .gcg 파일 직접 생성"
 }
