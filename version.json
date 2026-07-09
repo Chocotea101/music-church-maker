@@ -1,6 +1,6 @@
 {
-  "version": "5.14",
+  "version": "5.15",
   "file": "https://raw.githubusercontent.com/Chocotea101/music-church-maker/main/music-church-maker.html",
   "link": "https://github.com/Chocotea101/music-church-maker",
-  "notes": "GCG 미리보기 — 자막기 실제 크기·위치·색으로 미리보기"
+  "notes": "GCG 미리보기 안내 문구(글꼴은 근사치) 추가"
 }

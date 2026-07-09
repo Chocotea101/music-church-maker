@@ -176,7 +176,7 @@
 <div class="wrap">
   <header>
     <h1>가사 슬라이드 메이커<span class="dot">.</span></h1>
-    <p id="verBadge">v5.14</p>
+    <p id="verBadge">v5.15</p>
   </header>
   <!-- 새 버전이 있으면 전체화면으로 막고 업데이트를 요구 (오프라인이면 뜨지 않음) -->
   <div id="updateGate" style="display:none; position:fixed; inset:0; z-index:9999; background:rgba(8,8,12,.93); align-items:center; justify-content:center; padding:22px;">
@@ -286,6 +286,10 @@
       <input type="file" id="gcgTplFile" accept=".gcg" hidden>
       <button class="savefile" id="gcgTplBtn">📁 슬롯 템플릿(.gcg) 올리기</button>
       <div class="hint" id="gcgTplInfo" style="margin-top:6px">아직 템플릿 없음</div>
+      <div class="hint" id="gcgPrevHint" style="display:none; margin-top:4px">
+        👀 미리보기는 <b>글자 크기·위치·색</b>만 실제 자막기와 같아요. <b>글꼴 모양은 근사치</b> —
+        진짜 글꼴은 GenCG에서 열어야 보여요. ('글꼴 분위기'에서 비슷한 폰트를 고르면 미리보기가 더 비슷해져요)
+      </div>
     </div>
 
     <div class="panel">
@@ -440,7 +444,7 @@
 
 <script>
 // ══════════ 버전 & 업데이트 확인 ══════════
-const APP_VERSION = '5.14';
+const APP_VERSION = '5.15';
 // 아래 주소의 version.json을 실행할 때마다 확인해서 새 버전 공지를 띄워요.
 // version.json 형식:
 // {"version":"5.3","file":"새 html의 raw 주소","link":"배포 페이지 주소","notes":"바뀐 점 한 줄"}
@@ -1960,6 +1964,7 @@ function setGcgTpl(u8, remember){
   const dims = t.pages[0].lineLens.join('+');
   info.innerHTML = '✓ 템플릿 읽음: ' + t.N + '페이지 · 페이지당 ' + t.pages[0].lineLens.length + '줄(' + dims + '자)' +
     (t.BLK ? ' — <b style="color:var(--amber)">가사 양에 따라 페이지 자동 증감</b>' : ' — ⚠ 페이지 수 고정(똑같은 페이지 2개 이상이어야 증감 가능)');
+  document.getElementById('gcgPrevHint').style.display = t.style ? 'block' : 'none';
   if (remember){ try { localStorage.setItem('mcm_gcg_tpl', u8ToB64(u8)); } catch (e){} }
   if (mode === 'gcg') refresh();
   return true;
