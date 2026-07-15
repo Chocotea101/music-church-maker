@@ -1,6 +1,6 @@
 {
-  "version": "5.15",
+  "version": "5.16",
   "file": "https://raw.githubusercontent.com/Chocotea101/music-church-maker/main/music-church-maker.html",
   "link": "https://github.com/Chocotea101/music-church-maker",
-  "notes": "GCG 미리보기 안내 문구(글꼴은 근사치) 추가"
+  "notes": "PPT 자동 줄바꿈 금지 — 미리보기와 줄 구조 동일하게"
 }

@@ -176,7 +176,7 @@
 <div class="wrap">
   <header>
     <h1>가사 슬라이드 메이커<span class="dot">.</span></h1>
-    <p id="verBadge">v5.15</p>
+    <p id="verBadge">v5.16</p>
   </header>
   <!-- 새 버전이 있으면 전체화면으로 막고 업데이트를 요구 (오프라인이면 뜨지 않음) -->
   <div id="updateGate" style="display:none; position:fixed; inset:0; z-index:9999; background:rgba(8,8,12,.93); align-items:center; justify-content:center; padding:22px;">
@@ -444,7 +444,7 @@
 
 <script>
 // ══════════ 버전 & 업데이트 확인 ══════════
-const APP_VERSION = '5.15';
+const APP_VERSION = '5.16';
 // 아래 주소의 version.json을 실행할 때마다 확인해서 새 버전 공지를 띄워요.
 // version.json 형식:
 // {"version":"5.3","file":"새 html의 raw 주소","link":"배포 페이지 주소","notes":"바뀐 점 한 줄"}
@@ -1694,7 +1694,8 @@ async function exportDeck(target){
         x: 0, y: SLIDE_H * 0.36, w: SLIDE_W, h: 2.4,
         align: 'center', valign: 'middle',
         fontFace: F.face, bold: true, charSpacing: F.spacing + 2,
-        fontSize: Math.min(fitFont([title]), 54), color: textColor, shadow
+        fontSize: Math.min(fitFont([title]), 54), color: textColor, shadow,
+        wrap: false
       });
       if (mode === 'score'){
         t.addText(scoreMeta.key + '  ·  ' + scoreMeta.time, {
@@ -1715,7 +1716,8 @@ async function exportDeck(target){
           w: USABLE_W, h: USABLE_H,
           align: 'center', valign: 'middle',
           fontFace: F.face, bold: true, charSpacing: F.spacing,
-          fontSize: s.fs, lineSpacingMultiple: LINE_H, shadow
+          fontSize: s.fs, lineSpacingMultiple: LINE_H, shadow,
+          wrap: false   // 파워포인트 자동 줄바꿈 금지 — 미리보기 줄 구조 그대로 유지
         });
       });
     } else {
